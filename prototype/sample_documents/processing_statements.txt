@@ -1,0 +1,77 @@
+EXISTING PROCESSOR STATEMENT
+PAYPAL MERCHANT SERVICES
+
+Merchant Account: TechFlow Solutions LLC
+Account ID: PP-789456123
+Statement Period: January 1, 2024 - January 31, 2024
+
+TRANSACTION SUMMARY:
+Total Transactions: 1,247
+Total Volume: $156,890.45
+Average Transaction: $125.83
+
+TRANSACTION BREAKDOWN:
+Credit Card Sales: $142,340.20 (1,156 transactions)
+Debit Card Sales: $14,550.25 (91 transactions)
+Refunds: ($2,450.00) (15 transactions)
+Chargebacks: ($890.00) (2 transactions)
+
+Net Processing Volume: $153,550.45
+
+FEES BREAKDOWN:
+Transaction Fees (2.9%): $4,452.96
+Monthly Fee: $30.00
+Chargeback Fees: $40.00
+Other Fees: $15.50
+Total Fees: $4,538.46
+
+NET SETTLEMENT: $149,011.99
+
+CHARGEBACK DETAILS:
+Date: 01/15/2024, Amount: $450.00, Reason: Unauthorized Transaction
+Date: 01/28/2024, Amount: $440.00, Reason: Product Not Received
+
+RISK METRICS:
+Chargeback Rate: 0.16% (Industry Average: 0.65%)
+Refund Rate: 1.56% (Industry Average: 2.1%)
+Decline Rate: 3.2% (Industry Average: 4.8%)
+
+MERCHANT CATEGORY CODE: 5734 (Computer Software Stores)
+PROCESSING HISTORY: 14 months
+ACCOUNT STATUS: Good Standing
+
+---
+
+SQUARE PROCESSING STATEMENT
+
+Merchant: TechFlow Solutions LLC  
+Account: sq0idp-789456123
+Period: February 1, 2024 - February 29, 2024
+
+SALES SUMMARY:
+Gross Sales: $89,450.30
+Refunds: ($1,200.00)
+Net Sales: $88,250.30
+
+PAYMENT BREAKDOWN:
+Card Present: $45,200.15 (2.6% + $0.10)
+Card Not Present: $43,050.15 (2.9% + $0.30)
+
+PROCESSING FEES:
+Card Present Fees: $1,180.21
+Card Not Present Fees: $1,248.76
+Total Processing Fees: $2,428.97
+
+DEPOSITS:
+Total Deposited: $85,821.33
+Deposit Schedule: Next Business Day
+
+HARDWARE/SOFTWARE:
+Square Terminal Rental: $39.00/month
+Square for Retail Software: $60.00/month
+
+ACCOUNT METRICS:
+Processing Volume (12 months): $1,890,450
+Average Monthly Volume: $157,537
+Dispute Rate: 0.08%
+Account Age: 18 months
