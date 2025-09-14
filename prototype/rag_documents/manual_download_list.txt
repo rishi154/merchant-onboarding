@@ -1,0 +1,37 @@
+MANUAL DOWNLOAD LIST
+===================
+
+If automated download fails, manually download these documents:
+
+PCI_COMPLIANCE:
+  pci_dss_requirements_v4.pdf
+  https://www.pcisecuritystandards.org/documents/PCI-DSS-v4_0.pdf
+  Save to: rag_documents/pci_compliance/pci_dss_requirements_v4.pdf
+
+  saq_guide.pdf
+  https://www.pcisecuritystandards.org/documents/SAQ-InstrGuidelines-v4_0.pdf
+  Save to: rag_documents/pci_compliance/saq_guide.pdf
+
+  pci_glossary.pdf
+  https://www.pcisecuritystandards.org/documents/PCI_DSS_Glossary_v3-2.pdf
+  Save to: rag_documents/pci_compliance/pci_glossary.pdf
+
+KYC_AML:
+  cdd_rule.pdf
+  https://www.fincen.gov/sites/default/files/2016-09/CDD_Rule_FAQ_FINAL_508.pdf
+  Save to: rag_documents/kyc_aml/cdd_rule.pdf
+
+  beneficial_ownership.pdf
+  https://www.fincen.gov/sites/default/files/2018-04/FinCEN_Guidance_CDD_FAQ_FINAL_508_2.pdf
+  Save to: rag_documents/kyc_aml/beneficial_ownership.pdf
+
+BUSINESS_LICENSING:
+  california_business_guide.pdf
+  https://www.sos.ca.gov/business-programs/business-entities/forms
+  Save to: rag_documents/business_licensing/california_business_guide.pdf
+
+PAYMENT_STANDARDS:
+  visa_merchant_standards.pdf
+  https://usa.visa.com/dam/VCOM/download/merchants/visa-merchant-data-security-guidelines.pdf
+  Save to: rag_documents/payment_standards/visa_merchant_standards.pdf
+
