@@ -5,12 +5,14 @@
 
 ## **Agent 1: Market Qualification Agent**
 
+**Description**: Evaluates incoming merchant applications to determine if they meet basic eligibility criteria (revenue, geography, platform, credit) and routes qualified leads to the appropriate processing queue.
+
 ### **Automated Tasks (95% automation)**
 - **Pre-screening questionnaire processing** - <30 seconds
 - **Revenue range validation** - Real-time
 - **Geographic filtering** - Real-time
-- **Platform identification (Shopify/WooCommerce)** - Real-time API check
-- **Basic credit score pre-check** - 2-5 minutes (API call)
+- **Platform identification (Shopify/WooCommerce)** - Merchant self-declaration with optional verification
+- **Basic credit score pre-check** - 2-5 minutes
 - **Industry classification** - Real-time
 - **Application routing to appropriate queue** - Real-time
 
@@ -18,17 +20,19 @@
 - **Edge case review** - 15-30 minutes (unclear business models)
 - **Appeals/exceptions** - 30-60 minutes (borderline cases)
 
-### **External Dependencies (Real-Time Integrations)**
-- **Credit bureau API response** - 2-5 minutes (Experian real-time API)
-- **Platform API verification** - 30 seconds - 2 minutes
+### **External Dependencies**
+- **Credit bureau API response** - 2-5 minutes (Experian API)
+- **Website platform verification** - 30 seconds - 2 minutes (optional)
 - **Bank verification** - 30 seconds (Plaid integration)
-- **Government database checks** - Real-time (Secretary of State, IRS APIs)
+- **Government database checks** - 2-10 minutes (Secretary of State, IRS APIs)
 
 **Total Time: 5-10 minutes (automated), 30-60 minutes (manual exceptions)**
 
 ---
 
 ## **Agent 2: Document Processing Agent**
+
+**Description**: Extracts, validates, and processes business documents (tax returns, bank statements, licenses) using OCR and AI to convert unstructured documents into structured data for underwriting.
 
 ### **Automated Tasks (80% automation)**
 - **Document upload and classification** - 30 seconds
@@ -56,6 +60,8 @@
 
 ## **Agent 3: Lead Qualification Agent**
 
+**Description**: Analyzes lead quality and sales potential by evaluating CRM data, marketing attribution, behavioral patterns, and channel performance to prioritize high-value prospects.
+
 ### **Automated Tasks (90% automation)**
 - **CRM data analysis** - 2-3 minutes
 - **Marketing attribution tracking** - Real-time
@@ -78,6 +84,8 @@
 ---
 
 ## **Agent 4: Application Assistant Agent**
+
+**Description**: Provides real-time guidance to merchants during application completion, offering form validation, auto-completion, error prevention, and contextual help to improve application quality and completion rates.
 
 ### **Automated Tasks (85% automation)**
 - **Form field validation** - Real-time
@@ -102,11 +110,13 @@
 
 ## **Agent 5: Data Validation Agent**
 
+**Description**: Verifies accuracy and consistency of merchant data by cross-referencing information against government databases, business registries, and third-party sources to ensure data integrity.
+
 ### **Automated Tasks (75% automation)**
 - **Cross-reference validation** - 2-5 minutes
 - **Government database checks** - Real-time to 5 minutes
-- **Business registry verification** - Real-time to 2 minutes
-- **Address standardization** - Real-time
+- **Business registry verification** - 2-5 minutes
+- **Address standardization** - 30 seconds - 1 minute
 - **Phone/email validation** - 1-2 minutes
 - **Data consistency scoring** - 2-3 minutes
 
@@ -116,9 +126,9 @@
 - **International verification** - 45-90 minutes
 - **Data correction approval** - 15-30 minutes
 
-### **External Dependencies (Real-Time)**
-- **Government database APIs** - Real-time (Secretary of State, IRS, professional licenses)
-- **Third-party verification services** - 2-5 minutes (real-time APIs)
+### **External Dependencies**
+- **Government database APIs** - 2-10 minutes (Secretary of State, IRS, professional licenses)
+- **Third-party verification services** - 2-5 minutes
 - **Bank verification** - 30 seconds (Plaid integration)
 - **International database queries** - 2-10 minutes (for non-US entities)
 
@@ -127,6 +137,8 @@
 ---
 
 ## **Agent 6: Risk Assessment Agent**
+
+**Description**: Evaluates merchant creditworthiness and business risk by analyzing financial data, credit scores, industry factors, behavioral patterns, and fraud indicators to generate comprehensive risk profiles.
 
 ### **Automated Tasks (70% automation)**
 - **Credit score calculation** - 2-5 minutes
@@ -142,9 +154,9 @@
 - **Custom risk model adjustments** - 30-60 minutes
 - **High-risk case review** - 60-90 minutes
 
-### **External Dependencies (Real-Time)**
-- **Credit bureau reports** - 2-5 minutes (Experian real-time API)
-- **Industry data feeds** - Real-time
+### **External Dependencies**
+- **Credit bureau reports** - 2-5 minutes (Experian API)
+- **Industry data feeds** - 1-5 minutes
 - **Fraud database checks** - 30 seconds - 2 minutes
 - **Bank account verification** - 30 seconds (Plaid)
 
@@ -153,6 +165,8 @@
 ---
 
 ## **Agent 7: Decision Making Agent**
+
+**Description**: Makes final approval/decline decisions based on risk assessment, compliance checks, and business rules, determining credit limits and pricing terms for approved merchants.
 
 ### **Automated Tasks (60% automation)**
 - **Low-risk auto-approval** - <1 minute
@@ -168,9 +182,9 @@
 - **Appeals processing** - 60-120 minutes
 
 ### **External Dependencies (Eliminated/Reduced)**
-- **Risk committee meetings** - ELIMINATED (algorithmic decisions)
-- **Senior approval availability** - Real-time (on-call system)
-- **Regulatory compliance checks** - Real-time (automated APIs)
+- **Risk committee meetings** - Reduced to weekly reviews (algorithmic decisions for standard cases)
+- **Senior approval availability** - 2-4 hours (on-call system)
+- **Regulatory compliance checks** - 2-5 minutes (automated APIs)
 - **Conditional approval processing** - <1 hour for qualified merchants
 
 **Total Time: 2-5 minutes (automated), 1-2 hours (manual) - NO committee delays**
@@ -178,6 +192,8 @@
 ---
 
 ## **Agent 8: Exception Routing Agent**
+
+**Description**: Identifies and routes applications with unusual circumstances, errors, or edge cases to appropriate specialists or resolution workflows, ensuring no applications fall through cracks.
 
 ### **Automated Tasks (80% automation)**
 - **Exception classification** - <1 minute
@@ -201,6 +217,8 @@
 
 ## **Agent 9: Communication Agent**
 
+**Description**: Manages all merchant communications throughout the boarding process, sending personalized status updates, requests for additional information, and notifications via email, SMS, and portal messages.
+
 ### **Automated Tasks (90% automation)**
 - **Status update generation** - <1 minute
 - **Email/SMS sending** - Real-time
@@ -222,6 +240,8 @@
 ---
 
 ## **Agent 10: Account Provisioning Agent**
+
+**Description**: Sets up approved merchant accounts by generating API keys, configuring payment processing settings, establishing banking connections, and preparing integration documentation.
 
 ### **Automated Tasks (85% automation)**
 - **API key generation** - 1-2 minutes
@@ -247,6 +267,8 @@
 
 ## **Agent 11: Compliance Verification Agent**
 
+**Description**: Ensures regulatory compliance by screening merchants against sanctions lists, performing KYC/AML checks, verifying licenses, and conducting enhanced due diligence for high-risk cases.
+
 ### **Automated Tasks (65% automation)**
 - **Sanctions list screening** - 2-5 minutes
 - **PEP identification** - 2-5 minutes
@@ -260,9 +282,9 @@
 - **Regulatory interpretation** - 1-3 hours
 - **Compliance officer review** - 1-2 hours
 
-### **External Dependencies (Real-Time)**
-- **KYC/AML provider responses** - 2-5 minutes (real-time APIs)
-- **Government database queries** - Real-time (OFAC, PEP lists)
+### **External Dependencies**
+- **KYC/AML provider responses** - 2-5 minutes
+- **Government database queries** - 1-3 minutes (OFAC, PEP lists)
 - **International compliance checks** - 5-30 minutes (automated screening)
 - **Enhanced Due Diligence** - 2-4 hours (only for high-risk cases)
 
@@ -271,6 +293,8 @@
 ---
 
 ## **Agent 12: Onboarding Support Agent**
+
+**Description**: Guides newly approved merchants through technical integration and platform setup, providing training materials, progress tracking, and personalized support to ensure successful go-live.
 
 ### **Automated Tasks (75% automation)**
 - **Welcome sequence delivery** - 5-10 minutes
@@ -294,6 +318,8 @@
 
 ## **Agent 13: Monitoring Agent**
 
+**Description**: Continuously monitors merchant transactions and behavior post-boarding to detect anomalies, fraud patterns, compliance issues, and performance changes that may require intervention.
+
 ### **Automated Tasks (95% automation)**
 - **Transaction monitoring** - Real-time
 - **Anomaly detection** - Real-time
@@ -308,7 +334,7 @@
 - **Escalation decisions** - 20-45 minutes
 
 ### **External Dependencies**
-- **Transaction data feeds** - Real-time
+- **Transaction data feeds** - Near real-time (30 seconds - 2 minutes)
 - **External risk data** - 5-30 minutes
 
 **Total Time: Real-time (automated), 1-3 hours (manual investigation)**
@@ -316,6 +342,8 @@
 ---
 
 ## **Agent 14: Optimization Agent**
+
+**Description**: Analyzes system performance, identifies bottlenecks, conducts A/B tests, and recommends process improvements to continuously enhance boarding efficiency and merchant experience.
 
 ### **Automated Tasks (80% automation)**
 - **Performance metric calculation** - 5-10 minutes
@@ -341,35 +369,32 @@
 
 ### **5-PHASE IMPLEMENTATION PLAN**
 
-| **Phase** | **Timeline** | **Agents** | **Total Engineers** | **Automation Target** |
-|-----------|--------------|------------|--------------------|-----------------------|
-| Phase 1   | Months 1-3   | 3 agents   | 8-10 engineers     | 40% automation        |
-| Phase 2   | Months 3-7   | 3 agents   | 12-15 engineers    | 60% automation        |
-| Phase 3   | Months 6-10  | 3 agents   | 15-18 engineers    | 70% automation        |
-| Phase 4   | Months 9-14  | 2 agents   | 18-20 engineers    | 75% automation        |
-| Phase 5   | Months 12-18 | 3 agents   | 12-15 engineers    | 75% automation        |
+| **Phase** | **Timeline** | **Agents** | **Automation Target** |
+|-----------|--------------|------------|-----------------------|
+| Phase 1   | Months 1-3   | 3 agents   | 40% automation        |
+| Phase 2   | Months 3-7   | 3 agents   | 60% automation        |
+| Phase 3   | Months 6-10  | 3 agents   | 70% automation        |
+| Phase 4   | Months 9-14  | 2 agents   | 75% automation        |
+| Phase 5   | Months 12-18 | 3 agents   | 75% automation        |
 
 ---
 
-### **PRIORITY RANKING (1st-14th) WITH RESOURCE REQUIREMENTS**
+### **PRIORITY RANKING (1st-14th)**
 
 #### **PHASE 1: QUICK WINS (Months 1-4)**
 
 **1st Priority: Document Processing Agent**
 - **Timeline**: 2-3 months
-- **Resources**: 3-4 engineers (GenAI integration, API specialists)
 - **Rationale**: Highest impact, GenAI APIs handle OCR/extraction, minimal custom ML needed
 - **Success Milestone**: 80% document automation by Month 3
 
 **2nd Priority: Market Qualification Agent**
 - **Timeline**: 1-2 months
-- **Resources**: 2-3 engineers (backend developers, business analysts)
 - **Rationale**: Simple classification logic, minimal complexity
 - **Success Milestone**: 95% pre-screening automation by Month 2
 
 **3rd Priority: Communication Agent**
 - **Timeline**: 1-2 months
-- **Resources**: 2-3 engineers (GenAI integration specialists)
 - **Rationale**: GenAI APIs handle all text generation, just need integration
 - **Success Milestone**: 90% automated communications by Month 3
 
@@ -377,19 +402,16 @@
 
 **4th Priority: Data Validation Agent**
 - **Timeline**: 2-3 months
-- **Resources**: 3-4 engineers (API specialists, data engineers)
 - **Rationale**: API integrations with existing validation services
 - **Success Milestone**: 75% validation automation by Month 5
 
 **5th Priority: Application Assistant Agent**
 - **Timeline**: 2-3 months
-- **Resources**: 3-4 engineers (GenAI specialists, frontend developers)
 - **Rationale**: GenAI handles guidance logic, focus on integration
 - **Success Milestone**: 85% application assistance automation by Month 6
 
 **6th Priority: Exception Routing Agent**
 - **Timeline**: 1-2 months
-- **Resources**: 2-3 engineers (workflow specialists, backend developers)
 - **Rationale**: Simple routing logic with GenAI classification
 - **Success Milestone**: 80% exception routing automation by Month 7
 
@@ -397,19 +419,16 @@
 
 **7th Priority: Risk Assessment Agent**
 - **Timeline**: 3-4 months
-- **Resources**: 5-6 engineers (data scientists, GenAI specialists, risk analysts)
 - **Rationale**: GenAI can analyze patterns, focus on model tuning
 - **Success Milestone**: 70% risk assessment automation by Month 9
 
 **8th Priority: Lead Qualification Agent**
 - **Timeline**: 1-2 months
-- **Resources**: 2-3 engineers (GenAI specialists, CRM integration)
 - **Rationale**: GenAI classification with CRM data integration
 - **Success Milestone**: 90% lead qualification automation by Month 8
 
 **9th Priority: Account Provisioning Agent**
 - **Timeline**: 2-3 months
-- **Resources**: 4-5 engineers (system integration specialists, DevOps)
 - **Rationale**: Focus on API integrations, automated provisioning
 - **Success Milestone**: 85% provisioning automation by Month 10
 
@@ -417,13 +436,11 @@
 
 **10th Priority: Decision Making Agent**
 - **Timeline**: 3-4 months
-- **Resources**: 5-6 engineers (senior architects, business analysts, GenAI specialists)
 - **Rationale**: GenAI can handle complex decision logic with proper prompting
 - **Success Milestone**: 60% automated decisions by Month 12
 
 **11th Priority: Compliance Verification Agent**
 - **Timeline**: 3-4 months
-- **Resources**: 4-5 engineers (compliance specialists, GenAI integration)
 - **Rationale**: GenAI can interpret regulations, focus on API integrations
 - **Success Milestone**: 65% compliance automation by Month 14
 
@@ -431,19 +448,16 @@
 
 **12th Priority: Onboarding Support Agent**
 - **Timeline**: 2-3 months
-- **Resources**: 3-4 engineers (GenAI specialists, customer success integration)
 - **Rationale**: GenAI handles personalized guidance and support
 - **Success Milestone**: 75% onboarding automation by Month 15
 
 **13th Priority: Monitoring Agent**
 - **Timeline**: 3-4 months
-- **Resources**: 4-5 engineers (GenAI anomaly detection, security specialists)
 - **Rationale**: GenAI can identify patterns and anomalies effectively
 - **Success Milestone**: 95% monitoring automation by Month 17
 
 **14th Priority: Optimization Agent**
 - **Timeline**: 2-3 months
-- **Resources**: 3-4 engineers (GenAI analytics, performance specialists)
 - **Rationale**: GenAI can analyze performance data and suggest optimizations
 - **Success Milestone**: 80% optimization automation by Month 18
 
@@ -490,39 +504,7 @@
 - Optimization Agent: 80% automation
 - **Final Automation Target**: 75%
 
-#### **Resource Allocation by Phase**
 
-**Phase 1 (8-10 engineers)**
-- Document Processing: 3-4 engineers
-- Market Qualification: 2-3 engineers
-- Communication: 2-3 engineers
-- Management/DevOps: 1-2 engineers
-
-**Phase 2 (12-15 engineers)**
-- Data Validation: 3-4 engineers
-- Application Assistant: 3-4 engineers
-- Exception Routing: 2-3 engineers
-- Ongoing Phase 1: 2-3 engineers
-- Management/DevOps: 2 engineers
-
-**Phase 3 (15-18 engineers)**
-- Risk Assessment: 5-6 engineers (priority focus)
-- Lead Qualification: 2-3 engineers
-- Account Provisioning: 4-5 engineers
-- Ongoing maintenance: 3-4 engineers
-- Management/DevOps: 2 engineers
-
-**Phase 4 (18-20 engineers)**
-- Decision Making: 5-6 engineers (critical focus)
-- Compliance Verification: 4-5 engineers
-- Ongoing maintenance: 6-7 engineers
-- Management/DevOps: 2-3 engineers
-
-**Phase 5 (12-15 engineers)**
-- Onboarding Support: 3-4 engineers
-- Monitoring: 4-5 engineers
-- Optimization: 3-4 engineers
-- Full system maintenance: 2-3 engineers
 
 ### **CRITICAL SUCCESS FACTORS**
 
@@ -549,12 +531,7 @@
 4. **Legacy system integration** - Enterprise systems may require custom work
 5. **Data quality dependencies** - Early agents must produce clean data for later agents
 
-#### **Resource Requirements by Phase**
-1. **Phase 1**: Document processing expertise, OCR specialists
-2. **Phase 2**: API integration specialists, UX designers
-3. **Phase 3**: Data scientists, ML engineers, risk modeling experts
-4. **Phase 4**: Senior architects, compliance specialists, business analysts
-5. **Phase 5**: Analytics specialists, monitoring experts
+
 
 ### **ENTERPRISE PROCESSING TIMELINE ANALYSIS**
 
