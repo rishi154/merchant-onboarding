@@ -13,7 +13,6 @@ import mimetypes
 # Add paths for importing the workflow and database
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'database'))
-from workflow import create_onboarding_workflow
 from state import MerchantOnboardingState
 from models import MerchantApplication, ProcessingStep, Base
 
@@ -26,16 +25,25 @@ engine = create_engine('sqlite:///merchant_onboarding.db')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 
-# Store processing status
+# Store processing status and progress
 processing_status = {}
+agent_progress = {}  # Track agent completion per application
 
 @app.route('/')
 def index():
     return app.send_static_file('applications.html')
 
+@app.route('/upload')
+def upload_page():
+    return app.send_static_file('upload.html')
+
+@app.route('/processing')
+def processing_page():
+    return app.send_static_file('workflow_display.html')
+
 @app.route('/new')
 def new_application():
-    return app.send_static_file('index.html')
+    return app.send_static_file('upload.html')
 
 @app.route('/applications')
 def applications():
@@ -83,7 +91,7 @@ def application_details(app_id):
                         <pre class="bg-gray-100 p-4 rounded text-sm overflow-auto">{json.dumps(application.agent_results or {}, indent=2)}</pre>
                     </div>
                     
-                    <a href="/" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Back to Applications</a>
+                    <a href="/applications" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Back to Applications</a>
                 </div>
             </div>
         </body>
@@ -184,28 +192,72 @@ def get_applications():
 def get_workflow_config():
     """Get workflow configuration - steps and metadata"""
     try:
-        from workflow_config import get_workflow_steps, get_workflow_metadata
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+        from workflow_router import get_workflow_steps, get_workflow_metadata
         
-        steps = get_workflow_steps()
-        metadata = get_workflow_metadata()
+        # Return all workflow patterns
+        patterns = ['express_workflow', 'standard_workflow', 'comprehensive_workflow']
+        workflows = {}
+        
+        for pattern in patterns:
+            workflows[pattern] = {
+                'steps': get_workflow_steps(pattern),
+                'metadata': get_workflow_metadata(pattern)
+            }
         
         return jsonify({
-            'steps': steps,
-            **metadata
+            'workflows': workflows,
+            'default_pattern': 'comprehensive_workflow'
         })
     except ImportError:
-        # Fallback if config file doesn't exist
+        # Fallback
         return jsonify({
-            'steps': [
-                {'name': 'Document Processing', 'description': 'Extracting data from uploaded documents'},
-                {'name': 'Data Validation', 'description': 'Validating extracted information'},
-                {'name': 'Risk Assessment', 'description': 'Analyzing business risk factors'},
-                {'name': 'Compliance Check', 'description': 'Verifying regulatory compliance'},
-                {'name': 'Decision Making', 'description': 'Making final approval decision'}
-            ],
-            'workflow_name': 'Document-First Merchant Onboarding',
-            'version': '1.0'
+            'workflows': {
+                'comprehensive_workflow': {
+                    'steps': [
+                        {'name': 'Market Qualification', 'description': 'Market analysis and qualification'},
+                        {'name': 'Document Processing', 'description': 'Extract and validate documents'},
+                        {'name': 'Risk Assessment', 'description': 'Comprehensive risk analysis'},
+                        {'name': 'Decision Making', 'description': 'Final approval decision'}
+                    ],
+                    'metadata': {
+                        'name': 'Comprehensive Workflow',
+                        'estimated_time': '2-24 hours',
+                        'automation_rate': '60%'
+                    }
+                }
+            },
+            'default_pattern': 'comprehensive_workflow'
         })
+
+@app.route('/upload', methods=['POST'])
+def handle_upload():
+    try:
+        from werkzeug.utils import secure_filename
+        files = request.files.getlist('documents')
+        uploaded_files = []
+        
+        for file in files:
+            if file.filename:
+                filename = secure_filename(file.filename)
+                # Create temp directory for uploads
+                os.makedirs('temp_uploads', exist_ok=True)
+                filepath = os.path.join('temp_uploads', filename)
+                file.save(filepath)
+                
+                uploaded_files.append({
+                    'name': filename,
+                    'path': filepath,
+                    'size': os.path.getsize(filepath)
+                })
+        
+        return jsonify({
+            'status': 'success',
+            'files': uploaded_files
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/process', methods=['POST'])
 def process_documents():
@@ -213,33 +265,73 @@ def process_documents():
     print("[DEBUG] /api/process route called")
     try:
         print("[DEBUG] Processing request...")
-        business_name = request.form.get('business_name', 'Unknown Business')
-        files = request.files.getlist('documents')
         
-        if not files:
-            return jsonify({'error': 'No files uploaded'}), 400
+        # Handle JSON request from processing screen
+        if request.is_json:
+            data = request.get_json()
+            business_name = data.get('business_name', 'Unknown Business')
+            doc_info = data.get('documents', [])
+            
+            # Load files from temp storage
+            documents = []
+            for i, doc in enumerate(doc_info):
+                file_path = doc.get('path')
+                if file_path and os.path.exists(file_path):
+                    documents.append({
+                        "id": f"doc_{i+1:03d}",
+                        "type": detect_document_type(doc['name']),
+                        "path": file_path,
+                        "filename": doc['name'],
+                        "size": doc['size'],
+                        "uploaded_at": datetime.now().isoformat()
+                    })
+        else:
+            # Handle form data from direct upload
+            business_name = request.form.get('business_name', 'Unknown Business')
+            files = request.files.getlist('documents')
+            
+            if not files:
+                return jsonify({'error': 'No files uploaded'}), 400
+            
+            documents = []
+            for i, file in enumerate(files):
+                if file.filename:
+                    filename = f"{i+1:03d}_{file.filename}"
+                    file_path = os.path.join('temp_uploads', filename)
+                    os.makedirs('temp_uploads', exist_ok=True)
+                    file.save(file_path)
+                    
+                    documents.append({
+                        "id": f"doc_{i+1:03d}",
+                        "type": detect_document_type(file.filename),
+                        "path": file_path,
+                        "filename": file.filename,
+                        "size": os.path.getsize(file_path),
+                        "uploaded_at": datetime.now().isoformat()
+                    })
+        
+        if not documents:
+            return jsonify({'error': 'No valid documents found'}), 400
         
         # Create upload directory
         app_id = f"APP_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         upload_dir = os.path.join('uploads', app_id)
         os.makedirs(upload_dir, exist_ok=True)
         
-        # Save uploaded files first
-        documents = []
-        for i, file in enumerate(files):
-            if file.filename:
-                filename = f"{i+1:03d}_{file.filename}"
-                file_path = os.path.join(upload_dir, filename)
-                file.save(file_path)
-                
-                documents.append({
-                    "id": f"doc_{i+1:03d}",
-                    "type": detect_document_type(file.filename),
-                    "path": file_path,
-                    "filename": file.filename,
-                    "size": os.path.getsize(file_path),
-                    "uploaded_at": datetime.now().isoformat()
-                })
+        # Move files to permanent location
+        final_documents = []
+        for doc in documents:
+            temp_path = doc['path']
+            final_filename = f"{len(final_documents)+1:03d}_{doc['filename']}"
+            final_path = os.path.join(upload_dir, final_filename)
+            
+            # Move from temp to permanent location
+            if os.path.exists(temp_path):
+                os.rename(temp_path, final_path)
+                doc['path'] = final_path
+                final_documents.append(doc)
+        
+        documents = final_documents
         
         # Save to database after documents are processed
         session = Session()
@@ -250,7 +342,7 @@ def process_documents():
                 status='processing',
                 current_agent='market_qualification',
                 progress_percentage=0,
-                documents_processed=len(files),
+                documents_processed=len(documents),
                 processing_start_time=datetime.now(),
                 application_data={'documents': [doc['filename'] for doc in documents]}
             )
@@ -259,14 +351,66 @@ def process_documents():
         finally:
             session.close()
         
-        # Start processing in background
-        thread = threading.Thread(target=run_workflow, args=(app_id, documents, business_name))
+        # Analyze documents for routing decision
+        try:
+            sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+            from document_ai_router import analyze_documents_with_ai
+            from workflow_router import get_workflow_metadata
+            
+            print(f"[{app_id}] Analyzing {len(documents)} documents for routing...")
+            routing_analysis = analyze_documents_with_ai(documents)
+            workflow_pattern = routing_analysis['workflow_pattern']
+            workflow_meta = get_workflow_metadata(workflow_pattern)
+            
+            # Create detailed routing reason
+            routing_reason = f"Selected {workflow_meta['name']} due to: "
+            routing_reason += ", ".join(routing_analysis['risk_factors'][:3])  # Top 3 factors
+            if len(routing_analysis['risk_factors']) > 3:
+                routing_reason += f" and {len(routing_analysis['risk_factors']) - 3} other factors"
+            
+            print(f"[{app_id}] Routing decision: {workflow_pattern} - {routing_reason}")
+        except Exception as e:
+            print(f"[{app_id}] Error in document analysis: {e}")
+            # Fallback to comprehensive workflow
+            from workflow_router import get_workflow_metadata
+            workflow_pattern = 'comprehensive_workflow'
+            workflow_meta = get_workflow_metadata(workflow_pattern)
+            routing_reason = f"Selected {workflow_meta['name']} due to: Analysis error with {len(documents)} documents, defaulting to comprehensive review"
+            routing_analysis = {
+                'complexity_score': 20,
+                'document_types': ['unknown']
+            }
+        
+        # Start processing in background with workflow pattern
+        thread = threading.Thread(target=run_workflow, args=(app_id, documents, business_name, workflow_pattern))
         thread.start()
+        
+        # Emit workflow pattern info with real analysis
+        print(f"[{app_id}] Emitting workflow pattern to UI: {workflow_pattern}", flush=True)
+        socketio.emit('workflow_pattern_selected', {
+            'name': workflow_meta['name'],
+            'description': workflow_meta['description'],
+            'estimated_time': workflow_meta['estimated_time'],
+            'automation_rate': workflow_meta['automation_rate'],
+            'risk_level': workflow_meta['risk_level'],
+            'routing_reason': routing_reason,
+            'complexity_score': routing_analysis['complexity_score'],
+            'document_types': routing_analysis['document_types']
+        })
+        print(f"[{app_id}] Workflow pattern emitted: {routing_reason}", flush=True)
         
         return jsonify({
             'application_id': app_id,
             'status': 'processing',
-            'documents_count': len(documents)
+            'documents_count': len(documents),
+            'workflow_pattern': {
+                'name': workflow_meta['name'],
+                'description': workflow_meta['description'],
+                'estimated_time': workflow_meta['estimated_time'],
+                'automation_rate': workflow_meta['automation_rate'],
+                'risk_level': workflow_meta['risk_level'],
+                'routing_reason': routing_reason
+            }
         })
         
     except Exception as e:
@@ -289,57 +433,109 @@ def detect_document_type(filename):
     else:
         return 'business_license'  # Default
 
-def run_workflow(app_id, documents, business_name):
+def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensive_workflow'):
     """Run the actual 14-agent LangGraph workflow"""
     try:
-        print(f"[{app_id}] Starting 14-agent LangGraph workflow for {business_name}")
-        print(f"[{app_id}] Processing {len(documents)} documents")
+        print(f"[{app_id}] Starting 14-agent LangGraph workflow for {business_name}", flush=True)
+        print(f"[{app_id}] Processing {len(documents)} documents", flush=True)
         
-        print(f"[{app_id}] Creating workflow...")
-        # Create workflow
-        workflow = create_onboarding_workflow()
-        print(f"[{app_id}] Workflow created successfully")
+        print(f"[{app_id}] Preparing application data...")
+        # Prepare application data
+        application_data = {
+            'business_name': business_name,
+            'documents': [doc['filename'] for doc in documents]
+        }
         
-        print(f"[{app_id}] Initializing state...")
-        # Initialize state
-        initial_state = MerchantOnboardingState(
-            application_id=app_id,
-            business_name=business_name,
-            documents=documents
-        )
-        print(f"[{app_id}] State initialized")
+        # Import the new main processing function
+        import sys
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+        from main import process_merchant_application
         
-        print(f"[{app_id}] Running workflow...")
-        print(f"[{app_id}] Initial state: {initial_state.__dict__}")
-        
-        # Run the workflow using async API with streaming
+        # Run the multi-workflow processing
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        print(f"[{app_id}] Starting workflow execution...")
+        print(f"[{app_id}] Starting multi-workflow execution...", flush=True)
         
-        async def run_with_streaming():
-            current_results = {}
-            async for event in workflow.astream(initial_state):
-                print(f"[{app_id}] Workflow event: {event}")
-                # Update current results with new agent data
-                if isinstance(event, dict):
-                    for key, value in event.items():
-                        if key in ['market_qualification', 'lead_qualification', 'application_assistant', 
-                                  'document_processing', 'data_validation', 'risk_assessment', 
-                                  'compliance_verification', 'decision', 'exception_routing', 
-                                  'communication', 'account_provisioning', 'monitoring', 
-                                  'optimization', 'onboarding_support']:
-                            current_results[key] = value
-                            # Save to database immediately
-                            save_agent_result(app_id, current_results)
+        # Initialize progress tracking for this application
+        if app_id not in agent_progress:
+            agent_progress[app_id] = {}
+        
+        # Create progress callback for real-time updates
+        def progress_callback(agent_name, status, result):
+            print(f"[{app_id}] *** AGENT PROGRESS *** {agent_name}: {status}", flush=True)
             
-            # Get final result
-            final_result = await workflow.ainvoke(initial_state)
-            return final_result
+            # Update global progress tracker
+            agent_progress[app_id][agent_name] = {'status': status, 'result': result}
+            
+            # Count completed agents
+            completed_agents = len([k for k, v in agent_progress[app_id].items() if v.get('status') == 'completed'])
+            workflow_pattern = application_data.get('workflow_pattern', 'comprehensive_workflow')
+            total_agents = 4 if workflow_pattern == 'express_workflow' else 7 if workflow_pattern == 'standard_workflow' else 14
+            progress = min(100, int((completed_agents / total_agents) * 100))
+            
+            print(f"[{app_id}] Progress: {completed_agents}/{total_agents} = {progress}% ({workflow_pattern})")
+            print(f"[{app_id}] Completed agents: {[k for k, v in agent_progress[app_id].items() if v.get('status') == 'completed']}")
+            
+            # Update database
+            try:
+                session = Session()
+                application = session.query(MerchantApplication).filter_by(id=app_id).first()
+                if application:
+                    application.current_agent = agent_name
+                    application.progress_percentage = progress
+                    application.agent_results = dict(agent_progress[app_id])  # Save all results
+                    session.commit()
+                session.close()
+            except Exception as e:
+                print(f"[{app_id}] DB update error: {e}")
+            
+            # Emit to UI immediately
+            socketio.emit('agent_progress', {
+                'application_id': app_id,
+                'agent_name': agent_name,
+                'status': status,
+                'progress_percentage': progress,
+                'current_agent': agent_name,
+                'result': result
+            })
+            print(f"[{app_id}] Emitted progress: {progress}%")
+            if status == 'completed' and result:
+                # Print human-readable summary for key agents
+                if agent_name == 'market_qualification' and isinstance(result, dict):
+                    qualified = result.get('qualified', False)
+                    print(f"[{app_id}] Market Qualification: {'✅ Qualified' if qualified else '❌ Not Qualified'}")
+                    if result.get('reasoning'):
+                        print(f"[{app_id}] Reason: {result['reasoning']}")
+                elif agent_name == 'risk_assessment' and isinstance(result, dict):
+                    risk_level = result.get('risk_category', 'Unknown')
+                    risk_score = result.get('risk_score', 'N/A')
+                    credit_score = result.get('credit_score', 'N/A')
+                    print(f"[{app_id}] Risk Assessment: {risk_level} (Score: {risk_score}, Credit: {credit_score})")
+                elif agent_name == 'decision_making' and isinstance(result, dict):
+                    decision = result.get('decision', 'No Decision')
+                    reasoning = result.get('reasoning', 'No reasoning')
+                    print(f"[{app_id}] Final Decision: {decision}")
+                    print(f"[{app_id}] Decision Reasoning: {reasoning}")
+            print(f"[{app_id}] Agent result: {result}")
+            
+            # Progress tracking handled in callback
         
-        result = loop.run_until_complete(run_with_streaming())
-        print(f"[{app_id}] Workflow execution completed")
+        # Set workflow pattern in application data for main processing
+        application_data['workflow_pattern'] = workflow_pattern
+        
+        # Use the new main processing function with routing and progress callback
+        try:
+            result = loop.run_until_complete(
+                process_merchant_application(application_data, documents, progress_callback)
+            )
+        except NameError as e:
+            print(f"[{app_id}] NameError in workflow: {e}")
+            result = {'status': 'failed', 'error': str(e)}
+        except Exception as e:
+            print(f"[{app_id}] Error in workflow: {e}")
+            result = {'status': 'failed', 'error': str(e)}
+        print(f"[{app_id}] Workflow execution completed", flush=True)
         print(f"[{app_id}] Result type: {type(result)}")
         print(f"[{app_id}] Result keys: {list(result.__dict__.keys()) if hasattr(result, '__dict__') else 'No __dict__'}")
         
@@ -354,17 +550,61 @@ def run_workflow(app_id, documents, business_name):
         # Determine final status from workflow decision
         final_status = 'completed'
         if isinstance(result, dict):
-            decision_result = result.get('decision', {})
-            if isinstance(decision_result, dict):
-                decision = decision_result.get('decision', 'MANUAL_REVIEW')
-                if decision == 'APPROVED':
-                    final_status = 'approved'
-                elif decision == 'DECLINED':
-                    final_status = 'declined'
-                else:
-                    final_status = 'manual_review'
+            # Check if workflow actually completed all agents
+            agents_executed = result.get('agents_executed', [])
+            if len(agents_executed) < 14:  # Comprehensive workflow should have 14 agents
+                final_status = 'failed'
+            else:
+                decision_result = result.get('decision', {})
+                if isinstance(decision_result, dict):
+                    decision = decision_result.get('decision', 'MANUAL_REVIEW')
+                    if decision == 'APPROVED':
+                        final_status = 'approved'
+                    elif decision == 'DECLINED':
+                        final_status = 'declined'
+                    else:
+                        final_status = 'manual_review'
+        else:
+            # Check if it's a state object with exceptions
+            if hasattr(result, 'exceptions') and result.exceptions:
+                final_status = 'failed'
         
         print(f"[{app_id}] Final status determined: {final_status}")
+        if isinstance(result, dict) and result.get('agents_executed'):
+            print(f"[{app_id}] Agents executed: {len(result.get('agents_executed', []))}/14")
+        elif hasattr(result, 'agents_executed'):
+            print(f"[{app_id}] Agents executed: {len(result.agents_executed)}/14")
+        
+        # Print human-readable summary
+        print(f"\n[{app_id}] === WORKFLOW SUMMARY ===")
+        if isinstance(result, dict):
+            # Market Qualification Summary
+            mq = result.get('market_qualification', {})
+            if mq:
+                print(f"[{app_id}] Market Qualification: {'✅ Qualified' if mq.get('qualified') else '❌ Not Qualified'}")
+                print(f"[{app_id}] Reason: {mq.get('reasoning', 'No reasoning provided')}")
+            
+            # Risk Assessment Summary
+            risk = result.get('risk_assessment', {})
+            if risk:
+                print(f"[{app_id}] Risk Level: {risk.get('risk_category', 'Unknown')} (Score: {risk.get('risk_score', 'N/A')})")
+                print(f"[{app_id}] Credit Score: {risk.get('credit_score', 'N/A')}")
+            
+            # Final Decision Summary
+            decision = result.get('decision', {})
+            if decision:
+                print(f"[{app_id}] Final Decision: {decision.get('decision', 'No decision')}")
+                print(f"[{app_id}] Decision Reasoning: {decision.get('reasoning', 'No reasoning provided')}")
+                if decision.get('conditions'):
+                    print(f"[{app_id}] Conditions Required: {len(decision.get('conditions', []))} items")
+            
+            # Communication Summary
+            comm = result.get('communication', {})
+            if comm:
+                strategy = comm.get('communication_strategy', {})
+                print(f"[{app_id}] Communication: {strategy.get('message_type', 'N/A')} via {strategy.get('channel', 'N/A')}")
+        
+        print(f"[{app_id}] === END SUMMARY ===")
         
         # Update database with full results
         session = Session()
@@ -372,9 +612,15 @@ def run_workflow(app_id, documents, business_name):
             application = session.query(MerchantApplication).filter_by(id=app_id).first()
             if application:
                 application.status = final_status
-                application.current_agent = 'onboarding_support'
+                application.current_agent = 'completed'
                 application.progress_percentage = 100
                 application.processing_end_time = datetime.now()
+                
+                # Add workflow pattern info
+                if hasattr(result, 'workflow_pattern'):
+                    application.workflow_pattern = result.workflow_pattern
+                elif isinstance(result, dict) and 'workflow_pattern' in result:
+                    application.workflow_pattern = result['workflow_pattern']
                 # Safely serialize complex objects to JSON
                 if isinstance(result, dict):
                     extracted_data = result.get('extracted_data', result)  # Use full result if no extracted_data
@@ -395,7 +641,8 @@ def run_workflow(app_id, documents, business_name):
                 
                 print(f"[{app_id}] Saved extracted_data: {len(str(application.extracted_data))} chars")
                 print(f"[{app_id}] Saved agent_results: {len(str(application.agent_results))} chars")
-                application.extraction_confidence = result.get('extraction_confidence', 0.85) if isinstance(result, dict) else 0.85
+                # Set realistic confidence - 0.0 when Document AI unavailable
+                application.extraction_confidence = 0.0
                 session.commit()
         finally:
             session.close()

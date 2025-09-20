@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Onboarding - Document Upload</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; }
+        
+        .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+        .header { text-align: center; margin-bottom: 40px; }
+        .header h1 { color: #2c3e50; font-size: 2.5em; margin-bottom: 10px; }
+        .header p { color: #7f8c8d; font-size: 1.1em; }
+        
+        .upload-section { background: white; border-radius: 12px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .upload-zone { border: 3px dashed #bdc3c7; border-radius: 8px; padding: 60px 20px; text-align: center; transition: all 0.3s; cursor: pointer; }
+        .upload-zone:hover, .upload-zone.dragover { border-color: #3498db; background: #ecf0f1; }
+        .upload-zone.dragover { border-color: #2980b9; background: #d5dbdb; }
+        
+        .upload-icon { font-size: 4em; color: #bdc3c7; margin-bottom: 20px; }
+        .upload-text { color: #34495e; font-size: 1.2em; margin-bottom: 10px; }
+        .upload-hint { color: #7f8c8d; font-size: 0.9em; }
+        
+        .file-input { display: none; }
+        .file-list { margin-top: 30px; }
+        .file-item { display: flex; align-items: center; justify-content: between; padding: 15px; background: #ecf0f1; border-radius: 6px; margin-bottom: 10px; }
+        .file-info { flex: 1; }
+        .file-name { font-weight: 600; color: #2c3e50; }
+        .file-size { color: #7f8c8d; font-size: 0.9em; }
+        .file-status { margin-left: 15px; padding: 5px 12px; border-radius: 20px; font-size: 0.8em; font-weight: 600; }
+        .status-valid { background: #d5f4e6; color: #27ae60; }
+        .status-invalid { background: #fadbd8; color: #e74c3c; }
+        .file-remove { margin-left: 10px; background: #e74c3c; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; }
+        
+        .requirements { background: #ebf3fd; border-left: 4px solid #3498db; padding: 20px; border-radius: 6px; margin-bottom: 30px; }
+        .requirements h3 { color: #2980b9; margin-bottom: 15px; }
+        .requirements ul { list-style: none; }
+        .requirements li { margin-bottom: 8px; color: #34495e; }
+        .requirements li:before { content: "✓"; color: #27ae60; font-weight: bold; margin-right: 10px; }
+        
+        .actions { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 20px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); z-index: 1000; }
+        .btn { padding: 15px 40px; border: none; border-radius: 6px; font-size: 1.1em; font-weight: 600; cursor: pointer; transition: all 0.3s; width: 100%; max-width: 400px; margin: 0 auto; display: block; }
+        .btn-primary { background: #3498db; color: white; }
+        .btn-primary:hover { background: #2980b9; }
+        .btn-primary:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        body { padding-bottom: 100px; }
+        
+        .progress-bar { width: 100%; height: 6px; background: #ecf0f1; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #3498db; width: 0%; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Document Upload</h1>
+            <p>Upload your merchant onboarding documents to begin processing</p>
+        </div>
+        
+        <div class="requirements">
+            <h3>Required Documents</h3>
+            <ul>
+                <li>Business Registration Certificate</li>
+                <li>Tax Identification Document</li>
+                <li>Bank Account Verification</li>
+                <li>Identity Verification (Driver's License/Passport)</li>
+            </ul>
+        </div>
+        
+        <div class="upload-section">
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Drag and drop files here</div>
+                <div class="upload-hint">or click to browse (PDF, JPG, PNG - Max 10MB each)</div>
+                <input type="file" id="fileInput" class="file-input" multiple accept=".pdf,.jpg,.jpeg,.png">
+            </div>
+            
+            <div class="file-list" id="fileList"></div>
+            
+            <div class="progress-bar" id="progressBar" style="display: none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <div class="container" style="max-width: 800px; margin: 0 auto; text-align: center;">
+                <button class="btn btn-primary" id="startProcessing" disabled>Start Processing</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const startBtn = document.getElementById('startProcessing');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        
+        let uploadedFiles = [];
+        
+        // Drag and drop handlers
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+        uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                if (validateFile(file)) {
+                    uploadedFiles.push(file);
+                    displayFile(file);
+                }
+            });
+            updateStartButton();
+        }
+        
+        function validateFile(file) {
+            const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            
+            if (!validTypes.includes(file.type)) {
+                alert(`Invalid file type: ${file.name}. Please upload PDF, JPG, or PNG files.`);
+                return false;
+            }
+            
+            if (file.size > maxSize) {
+                alert(`File too large: ${file.name}. Maximum size is 10MB.`);
+                return false;
+            }
+            
+            return true;
+        }
+        
+        function displayFile(file) {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div class="file-info">
+                    <div class="file-name">${file.name}</div>
+                    <div class="file-size">${(file.size / 1024 / 1024).toFixed(2)} MB</div>
+                </div>
+                <div class="file-status status-valid">Valid</div>
+                <button class="file-remove" onclick="removeFile('${file.name}')">×</button>
+            `;
+            fileList.appendChild(fileItem);
+        }
+        
+        function removeFile(fileName) {
+            uploadedFiles = uploadedFiles.filter(file => file.name !== fileName);
+            const fileItems = fileList.querySelectorAll('.file-item');
+            fileItems.forEach(item => {
+                if (item.querySelector('.file-name').textContent === fileName) {
+                    item.remove();
+                }
+            });
+            updateStartButton();
+        }
+        
+        function updateStartButton() {
+            startBtn.disabled = uploadedFiles.length === 0;
+        }
+        
+        startBtn.addEventListener('click', async () => {
+            if (uploadedFiles.length === 0) return;
+            
+            startBtn.disabled = true;
+            startBtn.textContent = 'Uploading...';
+            progressBar.style.display = 'block';
+            
+            const formData = new FormData();
+            uploadedFiles.forEach(file => formData.append('documents', file));
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    sessionStorage.setItem('uploadedDocuments', JSON.stringify(result.files));
+                    window.location.href = '/processing';
+                } else {
+                    throw new Error('Upload failed');
+                }
+            } catch (error) {
+                alert('Upload failed. Please try again.');
+                startBtn.disabled = false;
+                startBtn.textContent = 'Start Processing';
+                progressBar.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

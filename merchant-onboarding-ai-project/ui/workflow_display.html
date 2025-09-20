@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processing Dashboard - Merchant Onboarding</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">Processing Dashboard</h1>
+        
+        <!-- Workflow Pattern Display -->
+        <div id="workflow-pattern" class="mb-8 p-6 bg-white rounded-lg shadow-md hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Workflow Pattern Selected</h2>
+                <span id="pattern-badge" class="px-3 py-1 rounded-full text-sm font-medium"></span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <p class="text-sm text-gray-600">Pattern</p>
+                    <p id="pattern-name" class="font-medium"></p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Estimated Time</p>
+                    <p id="pattern-time" class="font-medium"></p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">Automation Rate</p>
+                    <p id="pattern-automation" class="font-medium"></p>
+                </div>
+            </div>
+            <p id="pattern-description" class="text-gray-700 mt-2"></p>
+            <p id="routing-reason" class="text-sm text-blue-600 mt-2 italic"></p>
+        </div>
+
+        <!-- Document Summary -->
+        <div id="document-summary" class="bg-white rounded-lg shadow-md p-6 mb-8 hidden">
+            <h2 class="text-xl font-semibold mb-4">Uploaded Documents</h2>
+            <div id="document-list" class="space-y-2"></div>
+        </div>
+
+        <!-- Progress Display - Jenkins Blue Ocean Style -->
+        <div id="progress-container" class="bg-white rounded-lg shadow-md p-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">Processing Progress</h2>
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                    <span>Progress</span>
+                    <span id="progress-percentage">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+            <div id="current-step" class="text-sm text-gray-600 mb-4"></div>
+            
+            <!-- Jenkins Blue Ocean Style Pipeline -->
+            <div id="pipeline-container" class="bg-gray-50 p-4 rounded-lg">
+                <div class="flex items-center space-x-2 overflow-x-auto pb-2">
+                    <div id="pipeline-stages" class="flex items-center space-x-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Display -->
+        <div id="results-container" class="bg-white rounded-lg shadow-md p-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">Processing Results</h2>
+            <div id="results-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentApplicationId = null;
+
+        // Initialize processing dashboard on page load
+        window.addEventListener('load', function() {
+            const uploadedDocs = sessionStorage.getItem('uploadedDocuments');
+            if (uploadedDocs) {
+                const docs = JSON.parse(uploadedDocs);
+                displayUploadedDocuments(docs);
+                startProcessing(docs);
+            } else {
+                window.location.href = '/upload';
+            }
+        });
+        
+        function displayUploadedDocuments(docs) {
+            const docSummary = document.getElementById('document-summary');
+            const docList = document.getElementById('document-list');
+            
+            const totalSize = docs.reduce((sum, doc) => sum + (doc.size || 0), 0);
+            const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2);
+            
+            docList.innerHTML = `
+                <div class="p-3 bg-blue-50 rounded mb-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium">${docs.length} documents uploaded</span>
+                        <span class="text-sm text-gray-600">Total: ${totalSizeMB} MB</span>
+                    </div>
+                </div>
+                <details class="cursor-pointer">
+                    <summary class="text-sm text-blue-600 hover:text-blue-800">View document list</summary>
+                    <div class="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                        ${docs.map(doc => `
+                            <div class="text-xs p-2 bg-gray-50 rounded flex justify-between">
+                                <span class="truncate">${doc.name}</span>
+                                <span class="text-gray-500">${doc.size < 1024 * 1024 ? (doc.size / 1024).toFixed(0) + 'KB' : (doc.size / 1024 / 1024).toFixed(1) + 'MB'}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>
+            `;
+            
+            docSummary.classList.remove('hidden');
+        }
+        
+        // Placeholder removed - real workflow pattern comes from API response
+        
+        async function startProcessing(docs) {
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        business_name: 'Processing Session',
+                        documents: docs
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.application_id) {
+                    currentApplicationId = result.application_id;
+                    socket.emit('join_application', { application_id: currentApplicationId });
+                    
+                    // Show real workflow pattern immediately
+                    if (result.workflow_pattern) {
+                        console.log('Received workflow pattern:', result.workflow_pattern);
+                        displayWorkflowPattern(result.workflow_pattern);
+                    } else {
+                        console.log('No workflow pattern in response:', result);
+                    }
+                    
+                    document.getElementById('progress-container').classList.remove('hidden');
+                    
+                    // Initialize pipeline stages
+                    updatePipelineStages();
+                    
+                    // Start polling for updates
+                    pollProgress();
+                } else {
+                    alert('Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Processing error:', error);
+                alert('Error: ' + error.message);
+            }
+        }
+
+        socket.on('progress_update', function(data) {
+            updateProgress(data);
+        });
+
+        socket.on('workflow_pattern_selected', function(data) {
+            console.log('Received workflow_pattern_selected:', data);
+            displayWorkflowPattern(data);
+        });
+        
+        socket.on('workflow_routing', function(data) {
+            displayWorkflowRouting(data);
+        });
+        
+        socket.on('agent_progress', function(data) {
+            console.log('Received agent_progress:', data);
+            const currentStep = document.getElementById('current-step');
+            if (data.status === 'starting') {
+                currentStep.innerHTML = `<span class="text-blue-600 animate-pulse">🔄 Starting:</span> ${data.agent_name.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+            } else if (data.status === 'completed') {
+                currentStep.innerHTML = `<span class="text-green-600">✅ Completed:</span> ${data.agent_name.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+            } else if (data.status === 'failed') {
+                currentStep.innerHTML = `<span class="text-red-600">❌ Failed:</span> ${data.agent_name.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+            }
+            updateStageStatus(data.agent_name, data.status);
+            updateProgress(data);
+        });
+
+        async function pollProgress() {
+            if (!currentApplicationId) return;
+
+            try {
+                const response = await fetch(`/api/progress/${currentApplicationId}`);
+                const data = await response.json();
+                
+                updateProgress(data);
+                
+                if (data.status === 'completed' || data.status === 'failed') {
+                    displayResults(data);
+                } else {
+                    setTimeout(pollProgress, 2000);
+                }
+            } catch (error) {
+                console.error('Error polling progress:', error);
+                setTimeout(pollProgress, 5000);
+            }
+        }
+
+        function displayWorkflowPattern(data) {
+            console.log('displayWorkflowPattern called with:', data);
+            const patternDiv = document.getElementById('workflow-pattern');
+            const badge = document.getElementById('pattern-badge');
+            
+            if (!patternDiv) {
+                console.error('workflow-pattern element not found');
+                return;
+            }
+            
+            // Set badge color based on risk level
+            const colors = {
+                'Low': 'bg-green-100 text-green-800',
+                'Medium': 'bg-blue-100 text-blue-800', 
+                'High': 'bg-red-100 text-red-800'
+            };
+            
+            badge.className = `px-3 py-1 rounded-full text-sm font-medium ${colors[data.risk_level] || 'bg-gray-100 text-gray-800'}`;
+            badge.textContent = `${data.risk_level} Risk`;
+            
+            document.getElementById('pattern-name').textContent = data.name;
+            document.getElementById('pattern-time').textContent = data.estimated_time;
+            document.getElementById('pattern-automation').textContent = data.automation_rate;
+            document.getElementById('pattern-description').textContent = data.description;
+            const routingElement = document.getElementById('routing-reason');
+            console.log('Routing element:', routingElement);
+            console.log('Routing reason data:', data.routing_reason);
+            if (routingElement) {
+                routingElement.textContent = data.routing_reason || 'No routing reason provided';
+                routingElement.style.display = 'block';
+            } else {
+                console.error('routing-reason element not found');
+            }
+            
+            patternDiv.classList.remove('hidden');
+        }
+        
+        function displayWorkflowRouting(data) {
+            const patternDiv = document.getElementById('workflow-pattern');
+            const badge = document.getElementById('pattern-badge');
+            
+            // Set badge color based on risk level
+            const colors = {
+                'Low': 'bg-green-100 text-green-800',
+                'Medium': 'bg-blue-100 text-blue-800', 
+                'High': 'bg-red-100 text-red-800'
+            };
+            
+            badge.className = `px-3 py-1 rounded-full text-sm font-medium ${colors[data.risk_level] || 'bg-gray-100 text-gray-800'}`;
+            badge.textContent = `${data.risk_level} Risk`;
+            
+            document.getElementById('pattern-name').textContent = data.workflow_name;
+            document.getElementById('pattern-time').textContent = data.estimated_time;
+            document.getElementById('pattern-automation').textContent = data.automation_rate;
+            document.getElementById('pattern-description').textContent = data.description;
+            let reasonHtml = `<strong>Selected:</strong> ${data.workflow_name}<br><strong>Reason:</strong> ${data.reason}`;
+            if (data.routing_factors && data.routing_factors.length > 0) {
+                reasonHtml += '<br><br><strong>Routing Factors:</strong><ul class="list-disc list-inside mt-1">';
+                data.routing_factors.forEach(factor => {
+                    reasonHtml += `<li class="text-sm">${factor}</li>`;
+                });
+                reasonHtml += '</ul>';
+            }
+            document.getElementById('routing-reason').textContent = `Selected: ${data.workflow_name} - ${data.reason}`;
+            
+            patternDiv.classList.remove('hidden');
+        }
+
+        function updateProgress(data) {
+            console.log('updateProgress called with:', data);
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercentage = document.getElementById('progress-percentage');
+            const currentStep = document.getElementById('current-step');
+            
+            const progress = data.progress_percentage || 0;
+            console.log('Raw progress_percentage from data:', data.progress_percentage);
+            console.log('Setting progress to:', progress + '%');
+            progressBar.style.width = progress + '%';
+            progressPercentage.textContent = progress + '%';
+            currentStep.innerHTML = `<span class="text-blue-600 animate-pulse">🔄 Current:</span> ${(data.current_agent || 'Processing...').replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+            
+            // Update workflow steps if available
+            if (data.workflow_steps) {
+                updateWorkflowSteps(data.workflow_steps, data.current_agent);
+            }
+        }
+
+        function updatePipelineStages() {
+            const stages = [
+                'Market Qualification', 'Lead Qualification', 'Application Assistant', 'Document Processing',
+                'Data Validation', 'Risk Assessment', 'Compliance Verification', 'Decision Making',
+                'Exception Routing', 'Communication', 'Account Provisioning', 'Monitoring',
+                'Optimization', 'Onboarding Support'
+            ];
+            
+            const pipelineContainer = document.getElementById('pipeline-stages');
+            pipelineContainer.innerHTML = '';
+            
+            stages.forEach((stage, index) => {
+                const stageDiv = document.createElement('div');
+                stageDiv.className = 'flex items-center';
+                stageDiv.id = `stage-${index}`;
+                
+                stageDiv.innerHTML = `
+                    <div class="flex flex-col items-center">
+                        <div class="w-8 h-8 rounded-full border-2 border-gray-300 bg-white flex items-center justify-center text-xs font-medium transition-all duration-300" id="stage-icon-${index}">
+                            ${index + 1}
+                        </div>
+                        <div class="text-xs mt-1 text-center max-w-16 truncate" title="${stage}">${stage.split(' ')[0]}</div>
+                    </div>
+                    ${index < stages.length - 1 ? '<div class="w-8 h-0.5 bg-gray-300 mx-1" id="connector-' + index + '"></div>' : ''}
+                `;
+                
+                pipelineContainer.appendChild(stageDiv);
+            });
+        }
+        
+        function updateStageStatus(stageName, status) {
+            const stages = [
+                'market_qualification', 'lead_qualification', 'application_assistant', 'document_processing',
+                'data_validation', 'risk_assessment', 'compliance_verification', 'decision_making',
+                'exception_routing', 'communication', 'account_provisioning', 'monitoring',
+                'optimization', 'onboarding_support'
+            ];
+            
+            const stageIndex = stages.indexOf(stageName);
+            if (stageIndex === -1) return;
+            
+            const stageIcon = document.getElementById(`stage-icon-${stageIndex}`);
+            const connector = document.getElementById(`connector-${stageIndex}`);
+            
+            if (status === 'starting') {
+                stageIcon.className = 'w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-100 flex items-center justify-center text-xs font-medium animate-pulse';
+                stageIcon.innerHTML = '⏳';
+            } else if (status === 'completed') {
+                stageIcon.className = 'w-8 h-8 rounded-full border-2 border-green-500 bg-green-500 flex items-center justify-center text-xs font-medium text-white';
+                stageIcon.innerHTML = '✓';
+                if (connector) {
+                    connector.className = 'w-8 h-0.5 bg-green-500 mx-1';
+                }
+            } else if (status === 'failed') {
+                stageIcon.className = 'w-8 h-8 rounded-full border-2 border-red-500 bg-red-500 flex items-center justify-center text-xs font-medium text-white';
+                stageIcon.innerHTML = '✗';
+            }
+        }
+
+        function displayResults(data) {
+            const resultsContainer = document.getElementById('results-container');
+            const resultsContent = document.getElementById('results-content');
+            
+            const statusColor = data.status === 'completed' ? 'text-green-600' : 'text-red-600';
+            
+            // Generate human-readable summary
+            let summary = '';
+            if (data.agent_results) {
+                console.log('Agent results structure:', data.agent_results);
+                const results = data.agent_results;
+                
+                // Market Qualification Summary
+                if (results.market_qualification) {
+                    const mq = results.market_qualification.result || results.market_qualification;
+                    summary += `<div class="mb-3 p-3 bg-blue-50 rounded"><h4 class="font-semibold text-blue-800">Market Qualification</h4>`;
+                    summary += `<p class="text-sm">${mq.qualified ? '✅ Qualified' : '❌ Not Qualified'}</p>`;
+                    if (mq.reasoning) summary += `<p class="text-xs text-gray-600 mt-1">${mq.reasoning}</p>`;
+                    summary += `</div>`;
+                }
+                
+                // Risk Assessment Summary
+                if (results.risk_assessment) {
+                    const risk = results.risk_assessment.result || results.risk_assessment;
+                    summary += `<div class="mb-3 p-3 bg-yellow-50 rounded"><h4 class="font-semibold text-yellow-800">Risk Assessment</h4>`;
+                    summary += `<p class="text-sm">Risk Level: ${risk.risk_category || 'Unknown'} (Score: ${risk.risk_score || 'N/A'})</p>`;
+                    summary += `<p class="text-sm">Credit Score: ${risk.credit_score || 'N/A'}</p>`;
+                    summary += `</div>`;
+                }
+                
+                // Final Decision Summary  
+                if (results.decision_making || results.decision) {
+                    const decision = (results.decision_making && results.decision_making.result) || results.decision;
+                    const decisionColor = decision.decision === 'APPROVED' ? 'green' : decision.decision === 'DECLINED' ? 'red' : 'orange';
+                    summary += `<div class="mb-3 p-3 bg-${decisionColor}-50 rounded"><h4 class="font-semibold text-${decisionColor}-800">Final Decision</h4>`;
+                    summary += `<p class="text-sm font-medium">${decision.decision || 'No Decision'}</p>`;
+                    if (decision.reasoning) summary += `<p class="text-xs text-gray-600 mt-1">${decision.reasoning}</p>`;
+                    if (decision.conditions && decision.conditions.length > 0) {
+                        summary += `<p class="text-xs mt-2"><strong>Conditions Required:</strong></p>`;
+                        summary += `<ul class="text-xs mt-1 list-disc list-inside">`;
+                        decision.conditions.slice(0, 3).forEach(condition => {
+                            summary += `<li>${condition}</li>`;
+                        });
+                        if (decision.conditions.length > 3) {
+                            summary += `<li>...and ${decision.conditions.length - 3} more items</li>`;
+                        }
+                        summary += `</ul>`;
+                    }
+                    summary += `</div>`;
+                }
+                
+                // Communication Summary
+                if (results.communication) {
+                    const comm = results.communication.result || results.communication;
+                    summary += `<div class="mb-3 p-3 bg-purple-50 rounded"><h4 class="font-semibold text-purple-800">Communication Plan</h4>`;
+                    if (comm.communication_strategy) {
+                        const messageType = comm.communication_strategy.message_type || 'Not specified';
+                        const channel = comm.communication_strategy.channel || 'Not specified';
+                        summary += `<p class="text-sm"><strong>Type:</strong> ${messageType}</p>`;
+                        summary += `<p class="text-sm"><strong>Channel:</strong> ${channel}</p>`;
+                        if (comm.communication_strategy.tone) {
+                            summary += `<p class="text-sm"><strong>Tone:</strong> ${comm.communication_strategy.tone}</p>`;
+                        }
+                    }
+                    if (comm.decision) {
+                        summary += `<p class="text-xs text-gray-600 mt-1">${comm.decision}</p>`;
+                    }
+                    summary += `</div>`;
+                }
+            }
+            
+            resultsContent.innerHTML = `
+                <div class="mb-4">
+                    <span class="text-sm text-gray-600">Status:</span>
+                    <span class="font-medium ${statusColor}">${data.status.toUpperCase()}</span>
+                </div>
+                <div class="mb-4">
+                    <span class="text-sm text-gray-600">Application ID:</span>
+                    <span class="font-medium">${data.application_id}</span>
+                </div>
+                ${summary ? `
+                <div class="mb-4">
+                    <h3 class="font-medium mb-3">Workflow Summary:</h3>
+                    ${summary}
+                </div>
+                ` : ''}
+                ${data.agent_results ? `
+                <details class="mb-4">
+                    <summary class="font-medium mb-2 cursor-pointer">Full Agent Results (Click to expand)</summary>
+                    <pre class="bg-gray-100 p-3 rounded text-xs overflow-auto">${JSON.stringify(data.agent_results, null, 2)}</pre>
+                </details>
+                ` : ''}
+            `;
+            
+            resultsContainer.classList.remove('hidden');
+            
+            // Add option to start new session
+            const newSessionBtn = document.createElement('button');
+            newSessionBtn.className = 'mt-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700';
+            newSessionBtn.textContent = 'Start New Session';
+            newSessionBtn.onclick = () => {
+                sessionStorage.removeItem('uploadedDocuments');
+                window.location.href = '/upload';
+            };
+            resultsContent.appendChild(newSessionBtn);
+        }
+    </script>
+</body>
+</html>

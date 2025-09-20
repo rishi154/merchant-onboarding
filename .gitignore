@@ -251,3 +251,8 @@ checkpoints/
 # Project specific exclusions
 # GCP Networking folder - should not be committed
 gcp-networking/
+
+# Merchant onboarding uploads
+merchant-onboarding-ai-project/ui/uploads/
+merchant-onboarding-ai-project/ui/temp_uploads/
+merchant-onboarding-ai-project/ui/*.db

@@ -50,3 +50,9 @@ class MerchantOnboardingState(BaseModel):
     processing_start_time: Optional[str] = None
     processing_end_time: Optional[str] = None
     total_processing_time: Optional[float] = None
+    
+    # Workflow tracking
+    workflow_pattern: Optional[str] = None
+    workflow_start_time: Optional[str] = None
+    agents_executed: List[str] = []
+    routing_decision: Optional[str] = None

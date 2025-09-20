@@ -2,7 +2,23 @@ import asyncio
 import logging
 from datetime import datetime
 from workflow import create_onboarding_workflow
+from multi_workflow import create_express_workflow, create_standard_workflow, create_comprehensive_workflow
+from workflow_router import determine_workflow_pattern, get_workflow_metadata
 from state import MerchantOnboardingState, ApplicationStatus
+import sys
+import os
+import importlib.util
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', 'config', '.env'))
+
+def load_market_qualification_agent():
+    agent_path = os.path.join(os.path.dirname(__file__), '..', 'agents', 'market-qualification', 'src', 'agent.py')
+    spec = importlib.util.spec_from_file_location('market_qualification_agent', agent_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.market_qualification_agent
 
 # Configure logging
 logging.basicConfig(
@@ -10,8 +26,8 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-async def process_merchant_application(application_data: dict, documents: list = None):
-    """Main entry point for processing merchant applications"""
+async def process_merchant_application(application_data: dict, documents: list = None, progress_callback=None):
+    """Main entry point for processing merchant applications with multi-workflow routing"""
     
     # Initialize state
     app_id = f"APP_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -25,39 +41,50 @@ async def process_merchant_application(application_data: dict, documents: list =
         processing_start_time=datetime.now().isoformat()
     )
     
-    # Create and run workflow
-    workflow = create_onboarding_workflow()
-    
     try:
-        print("\n[WORKFLOW] Executing 14-agent workflow...")
-        print(f"[DEBUG] Initial state: {state.status}")
+        # Step 1: Get workflow pattern from document analysis (done in UI)
+        workflow_pattern = application_data.get('workflow_pattern', 'comprehensive_workflow')
+        state.workflow_pattern = workflow_pattern
+        state.workflow_pattern = workflow_pattern
+        # Workflow pattern already determined by document analysis in UI
+        print(f"\n[ROUTING] Using workflow pattern: {workflow_pattern}")
         
-        # Execute the workflow
-        result = await workflow.ainvoke(state)
-        print(f"\n[SUCCESS] Workflow completed successfully!")
-        print(f"[DEBUG] Final state: {result.status}")
+        # Step 2: Create appropriate workflow
+        if workflow_pattern == "express_workflow":
+            workflow = create_express_workflow()
+        elif workflow_pattern == "standard_workflow":
+            workflow = create_standard_workflow()
+        else:
+            workflow = create_comprehensive_workflow()
         
-        # Update final processing time - handle both dict and object results
+        state.workflow_start_time = datetime.now().isoformat()
+        
+        # Step 3: Execute selected workflow
+        print(f"\n[WORKFLOW] Executing {workflow_pattern}...")
+        # Store progress callback in a way the state can access it
+        if progress_callback:
+            # Store callback in a global or pass it differently
+            import builtins
+            builtins.current_progress_callback = progress_callback
+        try:
+            result = await workflow.ainvoke(state)
+            print(f"[DEBUG] Workflow result type: {type(result)}")
+            print(f"[DEBUG] Workflow result: {result}")
+            print(f"\n[SUCCESS] {workflow_pattern} completed successfully!")
+        except Exception as e:
+            print(f"[ERROR] Workflow execution failed: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return the state with error info
+            state.status = ApplicationStatus.EXCEPTION
+            state.exceptions.append(str(e))
+            result = state
+        
+        # Update final processing time
         if hasattr(result, 'processing_end_time'):
             result.processing_end_time = datetime.now().isoformat()
         elif isinstance(result, dict):
             result['processing_end_time'] = datetime.now().isoformat()
-        else:
-            # Convert dict result back to state object
-            if isinstance(result, dict):
-                # Create new state with updated values
-                updated_state = MerchantOnboardingState(
-                    application_id=state.application_id,
-                    application_data=state.application_data,
-                    documents=state.documents,
-                    processing_start_time=state.processing_start_time,
-                    processing_end_time=datetime.now().isoformat()
-                )
-                # Copy over any agent results
-                for key, value in result.items():
-                    if hasattr(updated_state, key):
-                        setattr(updated_state, key, value)
-                result = updated_state
         
         return result
         
