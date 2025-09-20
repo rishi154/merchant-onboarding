@@ -1,0 +1,50 @@
+# Development environment configuration
+environment: development
+use_mock: true
+debug: true
+
+# Google Cloud settings
+google_cloud:
+  project_id: merchant-onboarding-dev
+  location: us-central1
+  doc_ai_processors:
+    form: form-processor-id
+    ocr: ocr-processor-id
+    classifier: classifier-processor-id
+    id_doc: id-processor-id
+  storage_bucket: merchant-docs-dev
+  kms_key_ring: merchant-onboarding
+  kms_key_name: document-encryption
+
+# Business verification settings
+business_verification:
+  dnb_endpoint: https://api.dnb.com/v1
+  lexis_endpoint: https://api.lexisnexis.com/v1
+  sos_credentials:
+    CA:
+      endpoint: https://businesssearch.sos.ca.gov/api/v1
+    NY:
+      endpoint: https://api.dos.ny.gov/v1
+    DE:
+      endpoint: https://icis.corp.delaware.gov/api/v1
+    TX:
+      endpoint: https://api.sos.texas.gov/v1
+
+# Fraud detection settings
+fraud_detection:
+  mindbridge_endpoint: https://api.mindbridge.ai/v1
+  chainalysis_endpoint: https://api.chainalysis.com/v1
+  documentverify_endpoint: https://api.documentverify.com/v1
+
+# Document processing settings
+max_file_size_mb: 25
+supported_formats:
+  - .pdf
+  - .png
+  - .jpg
+  - .jpeg
+  - .tiff
+
+# Cache settings
+enable_cache: true
+cache_ttl_seconds: 3600

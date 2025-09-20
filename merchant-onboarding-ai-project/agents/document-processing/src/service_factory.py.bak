@@ -1,0 +1,182 @@
+from typing import Dict, Any, Optional
+from dataclasses import dataclass, field
+
+from .interfaces import (
+    def create_document_processor(self) -> IDocumentProcessor:
+        """Create document processor instance"""
+        from .mock_implementations import MockDocumentProcessingIntegrations
+        return MockDocumentProcessingIntegrations()tProcessor,
+    IDocumentStorage,
+            if self.config.use_mock:
+            from .mock_implementations import MockFraudDetector
+            return MockFraudDetector()
+        else:
+            # TODO: Implement real fraud detection service
+            from .mock_implementations import MockFraudDetector
+            return MockFraudDetector()ontentProvider,
+    IDocumentValidator,
+    IBusinessVerifier,
+    IFraudDetector
+)
+
+@dataclass
+class ServiceConfig:
+    """Configuration for document processing services"""
+    use_mock: bool = True
+    google_doc_ai_project: str = ""
+    google_doc_ai_location: str = "us"
+    google_doc_ai_processor_id: str = ""
+    storage_bucket: str = ""
+    fraud_api_key: str = ""
+    fraud_api_endpoint: str = ""
+    max_file_size_mb: int = 10
+    supported_formats: list = None
+    
+    def __post_init__(self):
+        if self.supported_formats is None:
+            self.supported_formats = [".pdf", ".png", ".jpg", ".jpeg", ".tiff"]
+
+@dataclass
+class ServiceConfig:
+    """Configuration for all document processing services"""
+    # Environment
+    use_mock: bool = True
+    
+    # Google Cloud Settings
+    google_cloud_project: str = ""
+    google_cloud_location: str = "us-central1"
+    doc_ai_processor_ids: Dict[str, str] = field(default_factory=dict)
+    storage_bucket: str = ""
+    
+    # Document Processing Settings
+    max_file_size_mb: int = 10
+    supported_formats: list = field(default_factory=lambda: [".pdf", ".png", ".jpg", ".jpeg", ".tiff"])
+    
+    # Business Verification Settings
+    dnb_api_key: str = ""
+    lexis_api_key: str = ""
+    sos_api_keys: Dict[str, str] = field(default_factory=dict)
+    
+    # Fraud Detection Settings
+    mindbridge_api_key: str = ""
+    chainalysis_api_key: str = ""
+    documentverify_api_key: str = ""
+
+    @classmethod
+    def from_env(cls) -> 'ServiceConfig':
+        """Load configuration from environment variables"""
+        import os
+        config = cls()
+        
+        # Core settings
+        config.use_mock = os.getenv("USE_MOCK", "true").lower() == "true"
+        
+        # Google Cloud settings
+        config.google_cloud_project = os.getenv("GOOGLE_CLOUD_PROJECT", "")
+        config.google_cloud_location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+        config.storage_bucket = os.getenv("STORAGE_BUCKET", "")
+        
+        # Document AI processor IDs
+        config.doc_ai_processor_ids = {
+            "form": os.getenv("DOC_AI_FORM_PROCESSOR_ID", ""),
+            "ocr": os.getenv("DOC_AI_OCR_PROCESSOR_ID", ""),
+            "classifier": os.getenv("DOC_AI_CLASSIFIER_PROCESSOR_ID", ""),
+            "id_doc": os.getenv("DOC_AI_ID_PROCESSOR_ID", "")
+        }
+        
+        # Document processing settings
+        if max_size := os.getenv("MAX_FILE_SIZE_MB"):
+            config.max_file_size_mb = int(max_size)
+        if formats := os.getenv("SUPPORTED_FORMATS"):
+            config.supported_formats = formats.split(",")
+            
+        # Business verification settings
+        config.dnb_api_key = os.getenv("DNB_API_KEY", "")
+        config.lexis_api_key = os.getenv("LEXISNEXIS_API_KEY", "")
+        
+        # SOS API keys for each state
+        for state in ["CA", "NY", "DE", "TX"]:
+            if api_key := os.getenv(f"SOS_{state}_API_KEY"):
+                config.sos_api_keys[state] = api_key
+        
+        # Fraud detection settings
+        config.mindbridge_api_key = os.getenv("MINDBRIDGE_API_KEY", "")
+        config.chainalysis_api_key = os.getenv("CHAINALYSIS_API_KEY", "")
+        config.documentverify_api_key = os.getenv("DOCUMENTVERIFY_API_KEY", "")
+        
+        return config
+
+class ServiceFactory:
+    """Factory for creating document processing service instances"""
+    
+    def __init__(self):
+        self.config = ServiceConfig.from_env()
+    
+    def create_document_processor(self) -> IDocumentProcessor:
+        """Create document processor instance based on configuration"""
+        if self.config.use_mock:
+            from .mock_implementations import MockDocumentProcessingIntegrations
+            return MockDocumentProcessingIntegrations()
+        else:
+            from .enhanced_document_ai import EnhancedDocumentAI
+            return EnhancedDocumentAI(
+                project_id=self.config.google_cloud_project,
+                location=self.config.google_cloud_location,
+                processor_ids=self.config.doc_ai_processor_ids
+            )
+    
+    def create_document_storage(self) -> IDocumentStorage:
+        """Create document storage instance based on configuration"""
+        if self.config.use_mock:
+            from .mock_implementations import MockDocumentStorage
+            return MockDocumentStorage()
+        else:
+            from .real_integrations import CloudStorageService
+            return CloudStorageService(bucket_name=self.config.storage_bucket)
+    
+    def create_content_provider(self) -> IDocumentContentProvider:
+        """Create content provider instance based on configuration"""
+        if self.config.use_mock:
+            from .document_content_provider import DocumentContentProvider
+            return DocumentContentProvider()
+        else:
+            from .real_integrations import RealDocumentContentProvider
+            return RealDocumentContentProvider(
+                max_file_size=self.config.max_file_size_mb * 1024 * 1024,
+                supported_formats=self.config.supported_formats
+            )
+    
+    def create_validator(self) -> IDocumentValidator:
+        """Create validator instance based on configuration"""
+        if self.config.use_mock:
+            from .mock_implementations import MockDocumentValidator
+            return MockDocumentValidator()
+        else:
+            from .real_integrations import RealDocumentValidator
+            return RealDocumentValidator()
+            
+    def create_business_verifier(self) -> IBusinessVerifier:
+        """Create business verification service"""
+        if self.config.use_mock:
+            from .mock_implementations import MockBusinessVerifier
+            return MockBusinessVerifier()
+        else:
+            from .business_verification import BusinessVerificationService
+            return BusinessVerificationService(
+                dnb_api_key=self.config.dnb_api_key,
+                lexis_api_key=self.config.lexis_api_key,
+                sos_api_keys=self.config.sos_api_keys
+            )
+    
+    def create_fraud_detector(self) -> IFraudDetector:
+        """Create fraud detection service"""
+        if self.config.use_mock:
+            from .mock_implementations import MockFraudDetector
+            return MockFraudDetector()
+        else:
+            from .fraud_detection import FraudDetectionService
+            return FraudDetectionService(
+                mindbridge_api_key=self.config.mindbridge_api_key,
+                chainalysis_api_key=self.config.chainalysis_api_key,
+                documentverify_api_key=self.config.documentverify_api_key
+            )

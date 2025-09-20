@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Onboarding AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .pipeline-step {
+            transition: all 0.3s ease;
+        }
+        .pipeline-step.completed {
+            background: linear-gradient(135deg, #10b981, #059669);
+            transform: scale(1.05);
+        }
+        .pipeline-step.processing {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            animation: roadPulse 2s infinite;
+            transform: scale(1.1);
+        }
+        .pipeline-step.failed {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            animation: negativeAlert 2s infinite;
+        }
+        .pipeline-step.pending {
+            background: #e5e7eb;
+            color: #6b7280;
+        }
+        .pipeline-step.negative {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            animation: negativeAlert 2s infinite;
+        }
+        .pipeline-step.neutral {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        @keyframes negativeAlert {
+            0%, 100% { transform: scale(1.1); }
+            50% { transform: scale(1.25); }
+        }
+        .step-tooltip {
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            max-width: 250px;
+            white-space: normal;
+        }
+        .step-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: #1f2937;
+        }
+        .pipeline-step:hover .step-tooltip {
+            opacity: 1;
+        }
+        @keyframes roadPulse {
+            0%, 100% {
+                transform: scale(1.1);
+                box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+            }
+            50% {
+                transform: scale(1.15);
+                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+            }
+        }
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+        .upload-area.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        .error-toast.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- Error Toast -->
+    <div id="errorToast" class="error-toast bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg max-w-sm">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-triangle mr-3"></i>
+            <div>
+                <div class="font-semibold">Error</div>
+                <div id="errorMessage" class="text-sm"></div>
+            </div>
+            <button onclick="hideError()" class="ml-4 text-white hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="successToast" class="error-toast bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg max-w-sm">
+        <div class="flex items-center">
+            <i class="fas fa-check-circle mr-3"></i>
+            <div>
+                <div class="font-semibold">Success</div>
+                <div id="successMessage" class="text-sm"></div>
+            </div>
+            <button onclick="hideSuccess()" class="ml-4 text-white hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Document Preview Modal -->
+    <div id="documentModal" class="modal">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl max-h-[90vh] overflow-hidden">
+            <div class="flex items-center justify-between p-4 border-b">
+                <h3 id="modalTitle" class="text-lg font-semibold">Document Preview</h3>
+                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div id="modalContent" class="p-4 overflow-auto max-h-[70vh]">
+                <!-- Document content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+                Merchant Onboarding AI
+            </h1>
+            <p class="text-gray-600 text-lg">Upload documents and watch the AI workflow process your application in real-time</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="bg-white rounded-xl shadow-xl p-8 mb-8 border border-gray-200">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-upload text-2xl text-blue-500 mr-3"></i>
+                <h2 class="text-2xl font-semibold text-gray-800">Upload Documents</h2>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <i class="fas fa-building mr-2"></i>Business Name
+                </label>
+                <input type="text" id="businessName" 
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" 
+                       placeholder="Enter your business name">
+            </div>
+
+            <div class="upload-area rounded-xl p-8 text-center mb-6 bg-gray-50 hover:bg-gray-100 cursor-pointer" id="uploadArea">
+                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                <p class="text-lg text-gray-600 mb-2">Drop files here or click to upload</p>
+                <p class="text-sm text-gray-500">Support for PDF, PNG, JPG files (Max 50MB each)</p>
+                <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg,.txt" class="hidden">
+            </div>
+
+            <!-- File List with Preview -->
+            <div id="fileList" class="mb-6 max-h-40 overflow-y-auto border border-gray-200 rounded-lg bg-gray-50"></div>
+            <div id="fileSummary" class="mb-6 hidden"></div>
+
+            <button id="processBtn" 
+                    class="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed font-semibold text-lg shadow-lg" 
+                    disabled>
+                <i class="fas fa-rocket mr-2"></i>Start AI Processing
+            </button>
+        </div>
+
+        <!-- Real-time Status -->
+        <div id="statusSection" class="bg-white rounded-xl shadow-xl p-6 mb-8 border border-gray-200 hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">
+                    <i class="fas fa-satellite-dish mr-2 text-green-500"></i>Real-time Status
+                </h3>
+                <div id="connectionStatus" class="flex items-center text-sm">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
+                    Connected
+                </div>
+            </div>
+            <div id="currentAgent" class="text-sm text-gray-600">Waiting to start...</div>
+        </div>
+
+        <!-- Workflow Visualization -->
+        <div id="workflowSection" class="bg-white rounded-xl shadow-xl p-8 border border-gray-200 hidden">
+            <div class="flex items-center mb-6">
+                <i class="fas fa-cogs text-2xl text-purple-500 mr-3"></i>
+                <h2 class="text-2xl font-semibold text-gray-800">AI Processing Pipeline</h2>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="mb-8">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span class="font-medium">Overall Progress</span>
+                    <span id="progressText" class="font-bold">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4 shadow-inner">
+                    <div id="progressBar" class="bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 h-4 rounded-full transition-all duration-1000 shadow-sm" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Pipeline Road -->
+            <div class="pb-4">
+                <div id="pipelineContainer" class="px-4 py-8 relative">
+                    <!-- Multi-line road will be added dynamically -->
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="mt-8 hidden">
+                <h3 class="text-xl font-semibold mb-4 text-gray-800">
+                    <i class="fas fa-chart-line mr-2 text-green-500"></i>Processing Results
+                </h3>
+                <div id="resultsContent" class="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-6 border border-gray-200">
+                    <!-- Results will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let steps = [];
+        let uploadedFiles = [];
+        let currentStep = 0;
+        let processing = false;
+        let startTime;
+        let socket;
+        let currentAppId;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadWorkflowConfig();
+            setupEventListeners();
+            createPipelineSteps();
+            initializeSocket();
+        });
+
+        function initializeSocket() {
+            socket = io();
+            
+            socket.on('connect', function() {
+                updateConnectionStatus(true);
+            });
+            
+            socket.on('disconnect', function() {
+                updateConnectionStatus(false);
+            });
+            
+            socket.on('progress_update', function(data) {
+                if (data.application_id === currentAppId) {
+                    handleRealTimeUpdate(data);
+                }
+            });
+            
+            socket.on('error_update', function(data) {
+                if (data.application_id === currentAppId) {
+                    showError('Processing Error', data.error);
+                }
+            });
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connectionStatus');
+            if (connected) {
+                statusEl.innerHTML = '<div class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>Connected';
+                statusEl.className = 'flex items-center text-sm text-green-600';
+            } else {
+                statusEl.innerHTML = '<div class="w-2 h-2 bg-red-500 rounded-full mr-2"></div>Disconnected';
+                statusEl.className = 'flex items-center text-sm text-red-600';
+            }
+        }
+
+        function handleRealTimeUpdate(data) {
+            updateProgress(data.progress);
+            document.getElementById('currentAgent').textContent = `Processing: ${data.current_agent}`;
+            
+            // Update pipeline steps with real agent results
+            if (data.agent_results) {
+                updatePipelineWithResults(data.agent_results);
+            }
+        }
+
+        function showError(title, message) {
+            document.getElementById('errorMessage').textContent = message;
+            const toast = document.getElementById('errorToast');
+            toast.classList.add('show');
+            setTimeout(() => hideError(), 5000);
+        }
+
+        function hideError() {
+            document.getElementById('errorToast').classList.remove('show');
+        }
+
+        function showSuccess(title, message) {
+            document.getElementById('successMessage').textContent = message;
+            const toast = document.getElementById('successToast');
+            toast.classList.add('show');
+            setTimeout(() => hideSuccess(), 3000);
+        }
+
+        function hideSuccess() {
+            document.getElementById('successToast').classList.remove('show');
+        }
+
+        async function loadWorkflowConfig() {
+            try {
+                const response = await fetch('/api/workflow-config');
+                const config = await response.json();
+                steps = config.steps;
+                
+                if (config.workflow_name) {
+                    document.querySelector('h1').innerHTML = config.workflow_name;
+                }
+            } catch (error) {
+                console.error('Failed to load workflow config:', error);
+                steps = [
+                    { name: 'Market Qualification', description: 'Analyzing market fit and requirements' },
+                    { name: 'Lead Qualification', description: 'Evaluating lead quality and potential' },
+                    { name: 'Application Assistant', description: 'Processing application data' },
+                    { name: 'Document Processing', description: 'Extracting data from uploaded documents' },
+                    { name: 'Data Validation', description: 'Validating extracted information' },
+                    { name: 'Risk Assessment', description: 'Analyzing business risk factors' },
+                    { name: 'Compliance Verification', description: 'Verifying regulatory compliance' },
+                    { name: 'Decision Making', description: 'Making final approval decision' },
+                    { name: 'Exception Routing', description: 'Handling special cases' },
+                    { name: 'Communication', description: 'Sending notifications' },
+                    { name: 'Account Provisioning', description: 'Setting up merchant account' },
+                    { name: 'Monitoring', description: 'Tracking onboarding progress' },
+                    { name: 'Optimization', description: 'Optimizing merchant setup' },
+                    { name: 'Onboarding Support', description: 'Providing ongoing support' }
+                ];
+            }
+        }
+
+        function setupEventListeners() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const processBtn = document.getElementById('processBtn');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+
+            fileInput.addEventListener('change', handleFileSelect);
+            processBtn.addEventListener('click', startProcessing);
+            document.getElementById('businessName').addEventListener('input', updateProcessButton);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            addFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            addFiles(files);
+        }
+
+        function addFiles(files) {
+            // Validate file size (50MB limit)
+            const maxSize = 50 * 1024 * 1024;
+            const validFiles = files.filter(file => {
+                if (file.size > maxSize) {
+                    showError('File Too Large', `${file.name} exceeds 50MB limit`);
+                    return false;
+                }
+                return true;
+            });
+
+            uploadedFiles = [...uploadedFiles, ...validFiles];
+            updateFileList();
+            updateProcessButton();
+            
+            if (validFiles.length > 0) {
+                showSuccess('Files Added', `${validFiles.length} files added successfully`);
+            }
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById('fileList');
+            const fileSummary = document.getElementById('fileSummary');
+            
+            if (uploadedFiles.length === 0) {
+                fileList.innerHTML = '';
+                fileSummary.classList.add('hidden');
+                return;
+            }
+            
+            // Show summary
+            const totalSize = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
+            fileSummary.innerHTML = `
+                <div class="flex items-center justify-between bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div class="flex items-center">
+                        <i class="fas fa-files text-blue-500 mr-3"></i>
+                        <span class="font-medium text-blue-900">${uploadedFiles.length} files selected</span>
+                        <span class="text-blue-700 ml-2">(${(totalSize / 1024 / 1024).toFixed(1)} MB total)</span>
+                    </div>
+                    <button onclick="clearAllFiles()" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        <i class="fas fa-trash mr-1"></i>Clear All
+                    </button>
+                </div>
+            `;
+            fileSummary.classList.remove('hidden');
+            
+            // Show file list with preview buttons
+            fileList.innerHTML = uploadedFiles.map((file, index) => `
+                <div class="flex items-center justify-between p-3 hover:bg-gray-100 border-b border-gray-200 last:border-b-0">
+                    <div class="flex items-center flex-1 min-w-0">
+                        <i class="fas fa-file-${getFileIcon(file.name)} text-gray-400 mr-3 flex-shrink-0"></i>
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-medium text-gray-700 truncate">${file.name}</div>
+                            <div class="text-xs text-gray-500">${(file.size / 1024).toFixed(0)} KB • ${getDocumentType(file.name)}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 ml-4">
+                        <button onclick="previewFile(${index})" class="text-blue-500 hover:text-blue-700 text-sm">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="removeFile(${index})" class="text-red-500 hover:text-red-700 text-sm">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getFileIcon(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            switch(ext) {
+                case 'pdf': return 'pdf';
+                case 'png': case 'jpg': case 'jpeg': return 'image';
+                case 'txt': return 'alt';
+                default: return 'file';
+            }
+        }
+
+        function getDocumentType(filename) {
+            const name = filename.toLowerCase();
+            if (name.includes('license')) return 'Business License';
+            if (name.includes('bank') || name.includes('statement')) return 'Bank Statement';
+            if (name.includes('tax')) return 'Tax Document';
+            if (name.includes('ein')) return 'EIN Letter';
+            return 'Business Document';
+        }
+
+        function previewFile(index) {
+            const file = uploadedFiles[index];
+            const modal = document.getElementById('documentModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalTitle.textContent = `Preview: ${file.name}`;
+            
+            if (file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                modalContent.innerHTML = `<img src="${url}" class="max-w-full h-auto rounded-lg shadow-lg" alt="${file.name}">`;
+            } else if (file.type === 'application/pdf') {
+                const url = URL.createObjectURL(file);
+                modalContent.innerHTML = `<embed src="${url}" type="application/pdf" width="100%" height="600px" class="rounded-lg">`;
+            } else if (file.type === 'text/plain') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    modalContent.innerHTML = `<pre class="bg-gray-100 p-4 rounded-lg text-sm overflow-auto max-h-96">${e.target.result}</pre>`;
+                };
+                reader.readAsText(file);
+            } else {
+                modalContent.innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-file text-4xl text-gray-400 mb-4"></i>
+                        <p class="text-gray-600">Preview not available for this file type</p>
+                        <p class="text-sm text-gray-500 mt-2">${file.name} (${(file.size / 1024).toFixed(0)} KB)</p>
+                    </div>
+                `;
+            }
+            
+            modal.classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('documentModal').classList.remove('show');
+        }
+
+        function clearAllFiles() {
+            uploadedFiles = [];
+            updateFileList();
+            updateProcessButton();
+            showSuccess('Files Cleared', 'All files have been removed');
+        }
+
+        function removeFile(index) {
+            const fileName = uploadedFiles[index].name;
+            uploadedFiles.splice(index, 1);
+            updateFileList();
+            updateProcessButton();
+            showSuccess('File Removed', `${fileName} has been removed`);
+        }
+
+        function updateProcessButton() {
+            const processBtn = document.getElementById('processBtn');
+            const businessName = document.getElementById('businessName').value.trim();
+            processBtn.disabled = uploadedFiles.length === 0 || !businessName || processing;
+        }
+
+        function createPipelineSteps() {
+            const container = document.getElementById('pipelineContainer');
+            const stepsPerRow = 7;
+            
+            container.innerHTML = '';
+            container.className = 'grid gap-6 p-4';
+            container.style.gridTemplateColumns = 'repeat(7, 1fr)';
+            
+            steps.forEach((step, index) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'flex flex-col items-center relative';
+                
+                stepDiv.innerHTML = `
+                    <div id="step-${index}" class="pipeline-step pending w-16 h-16 rounded-full flex items-center justify-center text-white font-bold mb-3 border-2 border-white shadow-lg text-sm relative z-10 cursor-pointer">
+                        ${index + 1}
+                        <div id="step-tooltip-${index}" class="step-tooltip">Pending</div>
+                    </div>
+                    <div class="text-center" style="width: 90px;">
+                        <h4 class="font-semibold text-gray-900 text-xs leading-tight mb-1">${step.name}</h4>
+                        <div id="step-status-${index}" class="text-xs text-gray-500">Pending</div>
+                    </div>
+                `;
+                
+                container.appendChild(stepDiv);
+            });
+        }
+
+        async function startProcessing() {
+            if (processing) return;
+            
+            processing = true;
+            startTime = Date.now();
+            currentStep = 0;
+            
+            const businessName = document.getElementById('businessName').value.trim();
+            document.getElementById('workflowSection').classList.remove('hidden');
+            document.getElementById('statusSection').classList.remove('hidden');
+            document.getElementById('processBtn').disabled = true;
+            document.getElementById('processBtn').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Processing...';
+
+            // Reset all steps
+            steps.forEach((_, index) => {
+                updateStepStatus(index, 'pending', 'Pending');
+            });
+
+            updateProgress(0);
+
+            try {
+                const formData = new FormData();
+                formData.append('business_name', businessName);
+                
+                uploadedFiles.forEach(file => {
+                    formData.append('documents', file);
+                });
+
+                updateStepStatus(0, 'processing', 'Starting...');
+                
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    currentAppId = result.application_id;
+                    socket.emit('join_application', { application_id: currentAppId });
+                    
+                    showSuccess('Processing Started', `Application ${currentAppId} is being processed`);
+                    
+                    // Start polling for updates
+                    await monitorProgress(currentAppId);
+                } else {
+                    throw new Error(result.error || 'Processing failed');
+                }
+                
+            } catch (error) {
+                showError('Processing Failed', error.message);
+                updateStepStatus(currentStep, 'failed', 'Failed');
+                showResults(businessName, 'failed', error.message);
+            }
+
+            processing = false;
+        }
+
+        async function monitorProgress(appId) {
+            let completedSteps = new Set();
+            let finalStatus = null;
+            
+            const pollInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/progress/${appId}`);
+                    if (response.ok) {
+                        const app = await response.json();
+                        
+                        if (app.error_message) {
+                            showError('Processing Error', app.error_message);
+                        }
+                        
+                        if (app && app.agent_results) {
+                            const agentMapping = {
+                                'market_qualification': 0,
+                                'lead_qualification': 1,
+                                'application_assistant': 2,
+                                'document_processing': 3,
+                                'data_validation': 4,
+                                'risk_assessment': 5,
+                                'compliance_verification': 6,
+                                'decision': 7,
+                                'exception_routing': 8,
+                                'communication': 9,
+                                'account_provisioning': 10,
+                                'monitoring': 11,
+                                'optimization': 12,
+                                'onboarding_support': 13
+                            };
+                            
+                            for (const [agentKey, stepIndex] of Object.entries(agentMapping)) {
+                                const agentResult = app.agent_results[agentKey];
+                                if (agentResult && !completedSteps.has(stepIndex)) {
+                                    updateStepStatus(stepIndex, 'completed', 'Completed', agentResult);
+                                    completedSteps.add(stepIndex);
+                                    updateProgress(((completedSteps.size) / steps.length) * 100);
+                                }
+                            }
+                            
+                            if (app.status !== 'processing' || completedSteps.size === steps.length) {
+                                clearInterval(pollInterval);
+                                finalStatus = app.status;
+                                document.getElementById('processBtn').innerHTML = '<i class="fas fa-check mr-2"></i>Processing Complete';
+                                showResults(document.getElementById('businessName').value, finalStatus);
+                                showSuccess('Processing Complete', `Application ${finalStatus}`);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 1000);
+        }
+
+        function updatePipelineWithResults(agentResults) {
+            const agentMapping = {
+                'market_qualification': 0,
+                'lead_qualification': 1,
+                'application_assistant': 2,
+                'document_processing': 3,
+                'data_validation': 4,
+                'risk_assessment': 5,
+                'compliance_verification': 6,
+                'decision': 7,
+                'exception_routing': 8,
+                'communication': 9,
+                'account_provisioning': 10,
+                'monitoring': 11,
+                'optimization': 12,
+                'onboarding_support': 13
+            };
+            
+            for (const [agentKey, stepIndex] of Object.entries(agentMapping)) {
+                const agentResult = agentResults[agentKey];
+                if (agentResult) {
+                    updateStepStatus(stepIndex, 'completed', 'Completed', agentResult);
+                }
+            }
+        }
+
+        function updateStepStatus(stepIndex, status, statusText, agentResult = null) {
+            const stepElement = document.getElementById(`step-${stepIndex}`);
+            const statusElement = document.getElementById(`step-status-${stepIndex}`);
+            const tooltipElement = document.getElementById(`step-tooltip-${stepIndex}`);
+            
+            stepElement.classList.remove('pending', 'processing', 'completed', 'failed', 'negative', 'neutral');
+            
+            let visualStatus = status;
+            let tooltipText = statusText;
+            
+            if (agentResult && status === 'completed') {
+                const agentName = steps[stepIndex]?.name || 'Agent';
+                const resultStatus = determineAgentResultStatus(agentName, agentResult);
+                
+                if (resultStatus.status === 'negative') {
+                    visualStatus = 'negative';
+                    tooltipText = `${agentName}: ${resultStatus.summary}`;
+                } else if (resultStatus.status === 'neutral') {
+                    visualStatus = 'neutral';
+                    tooltipText = `${agentName}: ${resultStatus.summary}`;
+                } else {
+                    tooltipText = `${agentName}: ${resultStatus.summary}`;
+                }
+            }
+            
+            stepElement.classList.add(visualStatus);
+            
+            let content = stepIndex + 1;
+            if (status === 'completed') {
+                content = visualStatus === 'negative' ? '<i class="fas fa-times"></i>' : 
+                         visualStatus === 'neutral' ? '<i class="fas fa-exclamation"></i>' : 
+                         '<i class="fas fa-check"></i>';
+            } else if (status === 'failed') {
+                content = '<i class="fas fa-times"></i>';
+            } else if (status === 'processing') {
+                content = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+            
+            stepElement.innerHTML = `${content}<div id="step-tooltip-${stepIndex}" class="step-tooltip">${tooltipText}</div>`;
+            statusElement.textContent = statusText;
+        }
+        
+        function determineAgentResultStatus(agentName, result) {
+            if (!result) return { status: 'unknown', summary: 'No data available' };
+            
+            switch (agentName) {
+                case 'Market Qualification':
+                    const qualified = result.qualified;
+                    return {
+                        status: qualified === false ? 'negative' : qualified === true ? 'positive' : 'neutral',
+                        summary: `${qualified === false ? 'Not Qualified' : qualified === true ? 'Qualified' : 'Under Review'}`
+                    };
+                    
+                case 'Risk Assessment':
+                    const riskScore = result.risk_score || 0;
+                    return {
+                        status: riskScore >= 80 ? 'negative' : riskScore >= 60 ? 'neutral' : 'positive',
+                        summary: `Risk Score ${riskScore}/100`
+                    };
+                    
+                case 'Decision Making':
+                    const decision = result.decision;
+                    return {
+                        status: decision === 'DECLINED' ? 'negative' : decision === 'APPROVED' ? 'positive' : 'neutral',
+                        summary: `${decision || 'Pending'} - $${result.credit_limit || 0} limit`
+                    };
+                    
+                default:
+                    if (result.success === false || result.approved === false || result.qualified === false) {
+                        return { status: 'negative', summary: 'Failed validation' };
+                    }
+                    if (result.success === true || result.approved === true || result.qualified === true) {
+                        return { status: 'positive', summary: 'Completed successfully' };
+                    }
+                    return { status: 'neutral', summary: 'Processing completed' };
+            }
+        }
+
+        function updateProgress(percentage) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = `${Math.round(percentage)}%`;
+        }
+
+        function showResults(businessName, status, errorMessage = null) {
+            const resultsSection = document.getElementById('resultsSection');
+            const resultsContent = document.getElementById('resultsContent');
+            
+            const processingTime = ((Date.now() - startTime) / 1000).toFixed(1);
+            
+            if (status === 'approved' || status === 'completed') {
+                resultsContent.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-green-200">
+                            <h4 class="font-semibold text-green-600 mb-4 flex items-center">
+                                <i class="fas fa-check-circle mr-2"></i>Application Processed
+                            </h4>
+                            <div class="space-y-2 text-sm text-gray-600">
+                                <p><strong>Business:</strong> ${businessName}</p>
+                                <p><strong>Documents:</strong> ${uploadedFiles.length} processed</p>
+                                <p><strong>Processing Time:</strong> ${processingTime}s</p>
+                                <p><strong>Status:</strong> <span class="text-green-600 font-medium">${status.toUpperCase()}</span></p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg shadow-sm border border-blue-200">
+                            <h4 class="font-semibold text-blue-600 mb-4 flex items-center">
+                                <i class="fas fa-chart-bar mr-2"></i>Processing Summary
+                            </h4>
+                            <div class="space-y-2 text-sm text-gray-600">
+                                <p><strong>AI Agents:</strong> ${steps.length} executed</p>
+                                <p><strong>Data Extracted:</strong> Business details, financials</p>
+                                <p><strong>Risk Assessment:</strong> Completed</p>
+                                <p><strong>Compliance:</strong> Verified</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultsContent.innerHTML = `
+                    <div class="text-center bg-white p-8 rounded-lg shadow-sm border border-red-200">
+                        <i class="fas fa-exclamation-triangle text-4xl text-red-500 mb-4"></i>
+                        <h4 class="font-semibold text-red-600 mb-4">Processing ${status === 'failed' ? 'Failed' : 'Issues'}</h4>
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <p><strong>Business:</strong> ${businessName}</p>
+                            <p><strong>Processing Time:</strong> ${processingTime}s</p>
+                            ${errorMessage ? `<p class="text-red-600 mt-4"><strong>Error:</strong> ${errorMessage}</p>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            resultsSection.classList.remove('hidden');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('documentModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

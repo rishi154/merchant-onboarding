@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Document-First Processing Flow</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+    <h1>Document-First Processing Flow - 30 Documents</h1>
+    <div class="mermaid">
+graph TD
+    A[Start: Document Upload] --> B[Document Classification]
+    B --> C[Extract Business Info]
+    B --> D[Extract Financial Info]
+    B --> E[Extract Legal Info]
+    B --> F[Extract Personal Info]
+    
+    %% Business Documents
+    C --> C1[Articles of Incorporation]
+    C --> C2[Business License]
+    C --> C3[DBA Certificate]
+    C --> C4[Operating Agreement]
+    C --> C5[Partnership Agreement]
+    C --> C6[Corporate Bylaws]
+    C --> C7[Business Registration]
+    C --> C8[Trade License]
+    C --> C9[Professional License]
+    C --> C10[Franchise Agreement]
+    
+    %% Financial Documents
+    D --> D1[Bank Statements]
+    D --> D2[Financial Statements]
+    D --> D3[Tax Returns]
+    D --> D4[Profit Loss Statement]
+    D --> D5[Balance Sheet]
+    D --> D6[Cash Flow Statement]
+    D --> D7[Audited Financials]
+    D --> D8[Credit Report]
+    D --> D9[Processing Statements]
+    D --> D10[Revenue Projections]
+    
+    %% Legal Documents
+    E --> E1[Voided Check]
+    E --> E2[Lease Agreement]
+    E --> E3[Utility Bill]
+    E --> E4[Insurance Certificate]
+    E --> E5[Compliance Certificates]
+    
+    %% Personal Documents
+    F --> F1[Driver License]
+    F --> F2[Passport]
+    F --> F3[SSN Card]
+    F --> F4[Personal Bank Statement]
+    F --> F5[Personal Tax Return]
+    
+    %% Processing Results
+    C1,C2,C3,C4,C5,C6,C7,C8,C9,C10 --> G[Business Data Extracted]
+    D1,D2,D3,D4,D5,D6,D7,D8,D9,D10 --> H[Financial Data Extracted]
+    E1,E2,E3,E4,E5 --> I[Legal Data Extracted]
+    F1,F2,F3,F4,F5 --> J[Personal Data Extracted]
+    
+    G --> K[Validation & Risk Assessment]
+    H --> K
+    I --> K
+    J --> K
+    
+    K --> L[Onboarding Decision]
+    
+    %% Styling
+    classDef start fill:#e8f5e8
+    classDef process fill:#e1f5fe
+    classDef business fill:#fff3e0
+    classDef financial fill:#f3e5f5
+    classDef legal fill:#fce4ec
+    classDef personal fill:#e0f2f1
+    classDef result fill:#fff8e1
+    
+    class A start
+    class B,C,D,E,F,G,H,I,J,K,L process
+    class C1,C2,C3,C4,C5,C6,C7,C8,C9,C10 business
+    class D1,D2,D3,D4,D5,D6,D7,D8,D9,D10 financial
+    class E1,E2,E3,E4,E5 legal
+    class F1,F2,F3,F4,F5 personal
+    </div>
+    <script>
+        mermaid.initialize({startOnLoad:true});
+    </script>
+</body>
+</html>

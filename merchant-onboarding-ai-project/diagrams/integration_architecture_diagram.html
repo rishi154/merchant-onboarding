@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Integration Architecture</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+    <h1>Integration Architecture - Mock/Real Switching</h1>
+    <div class="mermaid">
+graph TD
+    A[Agent] --> B[Tool]
+    B --> C{Environment Check}
+    
+    %% Credit Bureau Flow
+    C -->|MOCK_CREDIT_BUREAUS=true| D1[Mock Credit Bureau]
+    C -->|MOCK_CREDIT_BUREAUS=false| D2[Real Experian API]
+    
+    %% KYC Provider Flow
+    C -->|MOCK_KYC_PROVIDERS=true| E1[Mock KYC Provider]
+    C -->|MOCK_KYC_PROVIDERS=false| E2[Real Jumio API]
+    
+    %% Banking API Flow
+    C -->|MOCK_BANKING_APIS=true| F1[Mock Banking API]
+    C -->|MOCK_BANKING_APIS=false| F2[Real Plaid API]
+    
+    %% Government Database Flow
+    C -->|MOCK_GOVERNMENT_DATABASES=true| G1[Mock Government DB]
+    C -->|MOCK_GOVERNMENT_DATABASES=false| G2[Real OFAC API]
+    
+    %% Document Processing Flow
+    C -->|MOCK_DOCUMENT_PROCESSING=true| H1[Mock Document Processor]
+    C -->|MOCK_DOCUMENT_PROCESSING=false| H2[Real Document APIs]
+    
+    %% Results Flow
+    D1 --> I[Tool Response]
+    D2 --> I
+    E1 --> I
+    E2 --> I
+    F1 --> I
+    F2 --> I
+    G1 --> I
+    G2 --> I
+    H1 --> I
+    H2 --> I
+    
+    I --> J[Agent Processing]
+    J --> K[Workflow Continuation]
+    
+    %% Configuration
+    L[.env Configuration] --> C
+    L --> L1[MOCK_CREDIT_BUREAUS]
+    L --> L2[MOCK_KYC_PROVIDERS]
+    L --> L3[MOCK_BANKING_APIS]
+    L --> L4[MOCK_GOVERNMENT_DATABASES]
+    L --> L5[MOCK_DOCUMENT_PROCESSING]
+    
+    %% Styling
+    classDef agent fill:#e1f5fe
+    classDef tool fill:#f3e5f5
+    classDef decision fill:#fff3e0
+    classDef mock fill:#ffebee
+    classDef real fill:#e8f5e8
+    classDef config fill:#f9fbe7
+    
+    class A,J agent
+    class B,I tool
+    class C decision
+    class D1,E1,F1,G1,H1 mock
+    class D2,E2,F2,G2,H2 real
+    class L,L1,L2,L3,L4,L5 config
+    </div>
+    <script>
+        mermaid.initialize({startOnLoad:true});
+    </script>
+</body>
+</html>

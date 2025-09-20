@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applications Dashboard - Merchant Onboarding AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .nav {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .nav a {
+            color: #495057;
+            text-decoration: none;
+            margin-right: 20px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nav a:hover, .nav a.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .applications-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .application-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .application-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+        }
+
+        .app-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .app-id {
+            font-weight: bold;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-processing {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-declined {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-manual_review {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .app-details {
+            margin: 15px 0;
+        }
+
+        .app-details div {
+            margin: 8px 0;
+            color: #6c757d;
+        }
+
+        .app-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+
+        .agent-indicators {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .agent-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .agent-indicator.positive {
+            background: #10b981;
+        }
+
+        .agent-indicator.negative {
+            background: #ef4444;
+            animation: negativeAlert 2s infinite;
+        }
+
+        .agent-indicator.neutral {
+            background: #f59e0b;
+        }
+
+        .agent-indicator.unknown {
+            background: #6b7280;
+        }
+
+        @keyframes negativeAlert {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .tooltip {
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            max-width: 200px;
+            white-space: normal;
+        }
+
+        .tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: #1f2937;
+        }
+
+        .agent-indicator:hover .tooltip {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Applications Dashboard</h1>
+            <p>Track and manage merchant onboarding applications</p>
+        </div>
+
+        <div class="nav">
+            <a href="/" class="active">All Applications</a>
+            <a href="/new">New Application</a>
+        </div>
+
+        <div class="content">
+            <div id="applications-container">
+                <div class="empty-state">
+                    <h3>Loading applications...</h3>
+                    <p>Please wait while we fetch your applications.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadApplications() {
+            try {
+                const response = await fetch('/api/applications');
+                const applications = await response.json();
+                
+                const container = document.getElementById('applications-container');
+                
+                if (applications.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>No applications yet</h3>
+                            <p>Start by creating your first merchant onboarding application.</p>
+                            <a href="/new" class="btn btn-primary" style="margin-top: 15px; display: inline-block; text-decoration: none;">Create New Application</a>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const grid = document.createElement('div');
+                grid.className = 'applications-grid';
+                
+                applications.forEach(app => {
+                    const card = document.createElement('div');
+                    card.className = 'application-card';
+                    
+                    const statusClass = `status-${app.status}`;
+                    const statusText = app.status.charAt(0).toUpperCase() + app.status.slice(1);
+                    
+                    // Calculate processing time
+                    let processingTime = '';
+                    if (app.processing_start_time && app.processing_end_time) {
+                        const start = new Date(app.processing_start_time);
+                        const end = new Date(app.processing_end_time);
+                        const diffMs = end - start;
+                        const diffMins = Math.round(diffMs / 60000);
+                        processingTime = `<div><strong>Processing Time:</strong> ${diffMins} minutes</div>`;
+                    }
+                    
+                    // Generate agent status indicators
+                    const agentStatusHtml = generateAgentStatusIndicators(app.agent_results);
+                    
+                    card.innerHTML = `
+                        <div class="app-header">
+                            <div class="app-id">${app.application_id}</div>
+                            <div class="status-badge ${statusClass}">${statusText}</div>
+                        </div>
+                        <div class="app-details">
+                            <div><strong>Business:</strong> ${app.business_name}</div>
+                            <div><strong>Documents:</strong> ${app.documents_processed || 0} files</div>
+                            <div><strong>Current Agent:</strong> ${app.current_agent || 'N/A'}</div>
+                            <div><strong>Progress:</strong> ${app.progress_percentage || 0}%</div>
+                            <div><strong>Confidence:</strong> ${app.extraction_confidence ? (app.extraction_confidence * 100).toFixed(1) + '%' : 'N/A'}</div>
+                            <div><strong>Manual Fields:</strong> ${app.manual_fields_required || 0}</div>
+                            <div><strong>Created:</strong> ${new Date(app.created_at).toLocaleString()}</div>
+                            ${app.processing_end_time ? `<div><strong>Completed:</strong> ${new Date(app.processing_end_time).toLocaleString()}</div>` : ''}
+                            ${processingTime}
+                            ${agentStatusHtml ? `<div class="mt-3"><strong>Agent Results:</strong><div class="agent-indicators mt-2">${agentStatusHtml}</div></div>` : ''}
+                        </div>
+                        <div class="app-actions">
+                            <button class="btn btn-primary" onclick="viewApplication('${app.application_id}')">View Details</button>
+                            ${app.status === 'processing' ? `<button class="btn btn-secondary" onclick="trackApplication('${app.application_id}')">Track Progress</button>` : ''}
+                            <button class="btn btn-secondary" onclick="viewData('${app.application_id}')">View Data</button>
+                        </div>
+                    `;
+                    
+                    grid.appendChild(card);
+                });
+                
+                container.innerHTML = '';
+                container.appendChild(grid);
+                
+            } catch (error) {
+                console.error('Error loading applications:', error);
+                document.getElementById('applications-container').innerHTML = `
+                    <div class="empty-state">
+                        <h3>Error loading applications</h3>
+                        <p>Please try refreshing the page.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function viewApplication(appId) {
+            window.open(`/application/${appId}`, '_blank');
+        }
+
+        function trackApplication(appId) {
+            window.open(`/track/${appId}`, '_blank');
+        }
+
+        function viewData(appId) {
+            // Show extracted data and agent results in a modal
+            fetch(`/api/applications`)
+                .then(response => response.json())
+                .then(applications => {
+                    const app = applications.find(a => a.application_id === appId || a.id === appId);
+                    if (app) {
+                        const modal = document.createElement('div');
+                        modal.style.cssText = `
+                            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                            background: rgba(0,0,0,0.8); z-index: 1000; display: flex;
+                            align-items: center; justify-content: center; padding: 20px;
+                        `;
+                        
+                        modal.innerHTML = `
+                            <div style="background: white; border-radius: 12px; padding: 30px; max-width: 800px; max-height: 80vh; overflow-y: auto; width: 100%;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                    <h2>Application Data: ${appId}</h2>
+                                    <button onclick="this.closest('div').parentElement.remove()" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;">Close</button>
+                                </div>
+                                
+                                <div style="margin-bottom: 20px;">
+                                    <h3>Extracted Data:</h3>
+                                    <pre style="background: #f8f9fa; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px;">${JSON.stringify(app.extracted_data || {}, null, 2)}</pre>
+                                </div>
+                                
+                                <div style="margin-bottom: 20px;">
+                                    <h3>Agent Results:</h3>
+                                    <pre style="background: #f8f9fa; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px;">${JSON.stringify(app.agent_results || {}, null, 2)}</pre>
+                                </div>
+                                
+                                <div>
+                                    <h3>Application Data:</h3>
+                                    <pre style="background: #f8f9fa; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px;">${JSON.stringify(app.application_data || {}, null, 2)}</pre>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.body.appendChild(modal);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching application data:', error);
+                    alert('Error loading application data');
+                });
+        }
+
+        function generateAgentStatusIndicators(agentResults) {
+            if (!agentResults) return '';
+            
+            const agents = [
+                { key: 'market_qualification', name: 'Market Qualification' },
+                { key: 'lead_qualification', name: 'Lead Qualification' },
+                { key: 'application_assistant', name: 'Application Assistant' },
+                { key: 'document_processing', name: 'Document Processing' },
+                { key: 'data_validation', name: 'Data Validation' },
+                { key: 'risk_assessment', name: 'Risk Assessment' },
+                { key: 'compliance_verification', name: 'Compliance Verification' },
+                { key: 'decision', name: 'Decision Making' },
+                { key: 'exception_routing', name: 'Exception Routing' },
+                { key: 'communication', name: 'Communication' },
+                { key: 'account_provisioning', name: 'Account Provisioning' },
+                { key: 'monitoring', name: 'Monitoring' },
+                { key: 'optimization', name: 'Optimization' },
+                { key: 'onboarding_support', name: 'Onboarding Support' }
+            ];
+            
+            return agents.map(agent => {
+                const result = agentResults[agent.key];
+                if (!result) {
+                    return `<div class="agent-indicator unknown" title="${agent.name}: No data"></div>`;
+                }
+                
+                let status = 'unknown';
+                let summary = `${agent.name}: No specific result`;
+                
+                // Determine status based on agent result
+                if (agent.key === 'market_qualification') {
+                    const qualified = result.qualified;
+                    status = qualified ? 'positive' : 'negative';
+                    summary = `${agent.name}: ${qualified ? 'Qualified' : 'Not Qualified'} - ${result.reasoning || 'No details'}`;
+                } else if (agent.key === 'risk_assessment') {
+                    const riskScore = result.risk_score || 0;
+                    status = riskScore <= 50 ? 'positive' : riskScore <= 75 ? 'neutral' : 'negative';
+                    summary = `${agent.name}: Risk Score ${riskScore}/100 - ${result.risk_level || 'Unknown'}`;
+                } else if (agent.key === 'decision') {
+                    const decision = result.decision;
+                    status = decision === 'APPROVED' ? 'positive' : decision === 'DECLINED' ? 'negative' : 'neutral';
+                    summary = `${agent.name}: ${decision} - Credit Limit: $${result.credit_limit || 0}`;
+                } else if (agent.key === 'document_processing') {
+                    const confidence = result.confidence || 0;
+                    status = confidence >= 0.8 ? 'positive' : confidence >= 0.6 ? 'neutral' : 'negative';
+                    summary = `${agent.name}: ${(confidence * 100).toFixed(1)}% confidence - ${result.documents_processed || 0} docs processed`;
+                } else if (agent.key === 'compliance_verification') {
+                    const compliant = result.compliant;
+                    status = compliant ? 'positive' : 'negative';
+                    summary = `${agent.name}: ${compliant ? 'Compliant' : 'Non-Compliant'} - ${result.issues?.length || 0} issues found`;
+                } else {
+                    // Generic status determination
+                    if (result.success === true || result.approved === true || result.qualified === true) {
+                        status = 'positive';
+                    } else if (result.success === false || result.approved === false || result.qualified === false) {
+                        status = 'negative';
+                    } else {
+                        status = 'neutral';
+                    }
+                    summary = `${agent.name}: ${JSON.stringify(result).substring(0, 100)}...`;
+                }
+                
+                return `
+                    <div class="agent-indicator ${status}">
+                        <div class="tooltip">${summary}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load applications on page load
+        loadApplications();
+        
+        // Refresh every 30 seconds
+        setInterval(loadApplications, 30000);
+    </script>
+</body>
+</html>
