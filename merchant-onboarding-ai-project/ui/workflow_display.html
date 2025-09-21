@@ -73,6 +73,7 @@
     <script>
         const socket = io();
         let currentApplicationId = null;
+        let currentWorkflowPattern = 'comprehensive_workflow';
 
         // Initialize processing dashboard on page load
         window.addEventListener('load', function() {
@@ -140,6 +141,7 @@
                     // Show real workflow pattern immediately
                     if (result.workflow_pattern) {
                         console.log('Received workflow pattern:', result.workflow_pattern);
+                        currentWorkflowPattern = result.workflow_pattern.name || 'comprehensive_workflow';
                         displayWorkflowPattern(result.workflow_pattern);
                     } else {
                         console.log('No workflow pattern in response:', result);
@@ -147,8 +149,8 @@
                     
                     document.getElementById('progress-container').classList.remove('hidden');
                     
-                    // Initialize pipeline stages
-                    updatePipelineStages();
+                    // Initialize pipeline stages with correct workflow
+                    updatePipelineStages(currentWorkflowPattern);
                     
                     // Start polling for updates
                     pollProgress();
@@ -174,7 +176,7 @@
             displayWorkflowRouting(data);
         });
         
-        socket.on('agent_progress', function(data) {
+        socket.on('agent_progress', async function(data) {
             console.log('Received agent_progress:', data);
             const currentStep = document.getElementById('current-step');
             if (data.status === 'starting') {
@@ -184,7 +186,7 @@
             } else if (data.status === 'failed') {
                 currentStep.innerHTML = `<span class="text-red-600">❌ Failed:</span> ${data.agent_name.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
             }
-            updateStageStatus(data.agent_name, data.status);
+            await updateStageStatus(data.agent_name, data.status);
             updateProgress(data);
         });
 
@@ -295,13 +297,24 @@
             }
         }
 
-        function updatePipelineStages() {
-            const stages = [
-                'Market Qualification', 'Lead Qualification', 'Application Assistant', 'Document Processing',
-                'Data Validation', 'Risk Assessment', 'Compliance Verification', 'Decision Making',
-                'Exception Routing', 'Communication', 'Account Provisioning', 'Monitoring',
-                'Optimization', 'Onboarding Support'
-            ];
+        function updatePipelineStages(workflowPattern = 'comprehensive_workflow') {
+            // Define workflow-specific stages
+            const workflowStages = {
+                'express_workflow': [
+                    'Document Processing', 'Risk Assessment', 'Decision Making', 'Account Provisioning'
+                ],
+                'standard_workflow': [
+                    'Document Processing', 'Data Validation', 'Risk Assessment', 'Compliance Verification',
+                    'Decision Making', 'Account Provisioning', 'Communication'
+                ],
+                'comprehensive_workflow': [
+                    'Document Processing', 'Market Qualification', 'Lead Qualification', 'Data Validation',
+                    'Risk Assessment', 'Compliance Verification', 'Decision Making', 'Exception Routing',
+                    'Communication', 'Account Provisioning', 'Monitoring', 'Optimization', 'Onboarding Support'
+                ]
+            };
+            
+            const stages = workflowStages[workflowPattern] || workflowStages['comprehensive_workflow'];
             
             const pipelineContainer = document.getElementById('pipeline-stages');
             pipelineContainer.innerHTML = '';
@@ -325,15 +338,11 @@
             });
         }
         
-        function updateStageStatus(stageName, status) {
-            const stages = [
-                'market_qualification', 'lead_qualification', 'application_assistant', 'document_processing',
-                'data_validation', 'risk_assessment', 'compliance_verification', 'decision_making',
-                'exception_routing', 'communication', 'account_provisioning', 'monitoring',
-                'optimization', 'onboarding_support'
-            ];
+        async function updateStageStatus(stageName, status) {
+            // Get current workflow stages dynamically
+            const currentStages = getCurrentWorkflowStages();
+            const stageIndex = currentStages.indexOf(stageName);
             
-            const stageIndex = stages.indexOf(stageName);
             if (stageIndex === -1) return;
             
             const stageIcon = document.getElementById(`stage-icon-${stageIndex}`);
@@ -343,14 +352,88 @@
                 stageIcon.className = 'w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-100 flex items-center justify-center text-xs font-medium animate-pulse';
                 stageIcon.innerHTML = '⏳';
             } else if (status === 'completed') {
-                stageIcon.className = 'w-8 h-8 rounded-full border-2 border-green-500 bg-green-500 flex items-center justify-center text-xs font-medium text-white';
+                // Get agent results to determine appropriate color
+                let colorClass = 'green'; // default
+                if (currentApplicationId) {
+                    try {
+                        const response = await fetch(`/api/progress/${currentApplicationId}`);
+                        const data = await response.json();
+                        const agentResults = data.agent_results;
+                        
+                        if (agentResults && agentResults[stageName]) {
+                            const result = agentResults[stageName];
+                            const agentStatus = determineAgentStatus(stageName, result);
+                            
+                            if (agentStatus === 'negative') {
+                                colorClass = 'red';
+                            } else if (agentStatus === 'neutral') {
+                                colorClass = 'yellow';
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching agent results:', error);
+                    }
+                }
+                
+                stageIcon.className = `w-8 h-8 rounded-full border-2 border-${colorClass}-500 bg-${colorClass}-500 flex items-center justify-center text-xs font-medium text-white`;
                 stageIcon.innerHTML = '✓';
                 if (connector) {
-                    connector.className = 'w-8 h-0.5 bg-green-500 mx-1';
+                    connector.className = `w-8 h-0.5 bg-${colorClass}-500 mx-1`;
                 }
             } else if (status === 'failed') {
                 stageIcon.className = 'w-8 h-8 rounded-full border-2 border-red-500 bg-red-500 flex items-center justify-center text-xs font-medium text-white';
                 stageIcon.innerHTML = '✗';
+            }
+        }
+        
+        function getCurrentWorkflowStages() {
+            // Map display names to agent names for current workflow
+            const workflowStages = {
+                'express_workflow': [
+                    'document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'
+                ],
+                'standard_workflow': [
+                    'document_processing', 'data_validation', 'risk_assessment', 'compliance_verification',
+                    'decision_making', 'account_provisioning', 'communication'
+                ],
+                'comprehensive_workflow': [
+                    'document_processing', 'market_qualification', 'lead_qualification', 'data_validation',
+                    'risk_assessment', 'compliance_verification', 'decision_making', 'exception_routing',
+                    'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support'
+                ]
+            };
+            
+            return workflowStages[currentWorkflowPattern] || workflowStages['comprehensive_workflow'];
+        }
+        
+        function determineAgentStatus(agentKey, result) {
+            if (!result) return 'unknown';
+            
+            // Same logic as Applications page
+            if (agentKey === 'market_qualification') {
+                const qualified = result.qualified;
+                return qualified ? 'positive' : 'negative';
+            } else if (agentKey === 'risk_assessment') {
+                const riskScore = result.risk_score || 0;
+                return riskScore <= 50 ? 'positive' : riskScore <= 75 ? 'neutral' : 'negative';
+            } else if (agentKey === 'decision_making') {
+                const decision = result.decision;
+                return decision === 'APPROVED' ? 'positive' : decision === 'DECLINED' ? 'negative' : 'neutral';
+            } else if (agentKey === 'document_processing') {
+                const confidence = result.confidence || 0;
+                return confidence >= 0.8 ? 'positive' : confidence >= 0.6 ? 'neutral' : 'negative';
+            } else if (agentKey === 'compliance_verification') {
+                const compliant = result.compliant;
+                return compliant ? 'positive' : 'negative';
+            } else {
+                // Generic status determination
+                if (result.success === true || result.approved === true || result.qualified === true) {
+                    return 'positive';
+                } else if (result.success === false || result.approved === false || result.qualified === false) {
+                    return 'negative';
+                } else {
+                    return 'neutral';
+                }
             }
         }
 

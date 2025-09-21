@@ -477,7 +477,8 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
             print(f"[{app_id}] Progress: {completed_agents}/{total_agents} = {progress}% ({workflow_pattern})")
             print(f"[{app_id}] Completed agents: {[k for k, v in agent_progress[app_id].items() if v.get('status') == 'completed']}")
             
-            # Update database
+            # Update database first
+            db_agent_results = {}
             try:
                 session = Session()
                 application = session.query(MerchantApplication).filter_by(id=app_id).first()
@@ -486,20 +487,22 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                     application.progress_percentage = progress
                     application.agent_results = dict(agent_progress[app_id])  # Save all results
                     session.commit()
+                    # Get fresh data from database for consistent UI updates
+                    db_agent_results = application.agent_results or {}
                 session.close()
             except Exception as e:
                 print(f"[{app_id}] DB update error: {e}")
             
-            # Emit to UI immediately
+            # Emit to UI with database data for consistency
             socketio.emit('agent_progress', {
                 'application_id': app_id,
                 'agent_name': agent_name,
                 'status': status,
                 'progress_percentage': progress,
                 'current_agent': agent_name,
-                'result': result
+                'agent_results': db_agent_results  # Use database data instead of empty callback result
             })
-            print(f"[{app_id}] Emitted progress: {progress}%")
+            print(f"[{app_id}] Emitted progress: {progress}% with DB data")
             if status == 'completed' and result:
                 # Print human-readable summary for key agents
                 if agent_name == 'market_qualification' and isinstance(result, dict):

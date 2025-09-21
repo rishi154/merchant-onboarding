@@ -1,57 +1,509 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Merchant Onboarding Workflow</title>
+    <title>Merchant Onboarding Workflows</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .workflow { margin: 40px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .workflow h2 { color: #333; margin-top: 0; }
+        .mermaid { text-align: center; margin: 20px 0; }
+    </style>
 </head>
 <body>
-    <h1>Merchant Onboarding Workflow - 14 Agents</h1>
-    <div class="mermaid">
-graph TD
-    A[Start: Merchant Application] --> B[Market Qualification Agent]
-    B --> C[Document Processing Agent]
-    C --> D[Data Validation Agent]
-    D --> E[Risk Assessment Agent]
-    E --> F[Compliance Verification Agent]
-    F --> G[Decision Making Agent]
-    G --> H[Exception Routing Agent]
-    H --> I[Communication Agent]
-    I --> J[Account Provisioning Agent]
-    J --> K[Monitoring Agent]
-    K --> L[Optimization Agent]
-    L --> M[Onboarding Support Agent]
-    M --> N[End: Merchant Onboarded]
+    <h1>Merchant Onboarding Workflows</h1>
+
+    <div class="workflow">
+        <h2>Document-First Routing Flow</h2>
+        <div class="mermaid">
+flowchart TD
+    START[Application Upload] --> DOC[Document Processing Agent]
+    DOC --> ROUTE{Intelligent Routing}
     
-    %% Tool Connections
-    B -.-> B1[Market Research Tools]
-    C -.-> C1[Document Processing Tools]
-    D -.-> D1[Data Validation Tools]
-    E -.-> E1[Risk Assessment Tools]
-    F -.-> F1[Compliance Tools]
-    G -.-> G1[Decision Tools]
-    H -.-> H1[Exception Tools]
-    I -.-> I1[Communication Tools]
-    J -.-> J1[Account Tools]
-    K -.-> K1[Monitoring Tools]
-    L -.-> L1[Optimization Tools]
-    M -.-> M1[Support Tools]
+    ROUTE -->|Low Risk| EXP[Express: 3 More Agents]
+    ROUTE -->|Medium Risk| STD[Standard: 6 More Agents]
+    ROUTE -->|High Risk| COMP[Comprehensive: 11 More Agents]
     
-    %% External Integrations
-    C1 -.-> EXT1[Document APIs]
-    D1 -.-> EXT2[KYC Providers - Jumio]
-    E1 -.-> EXT3[Credit Bureaus - Experian]
-    F1 -.-> EXT4[Government DBs - OFAC]
-    J1 -.-> EXT5[Banking APIs - Plaid]
+    EXP --> EXP_FLOW[Risk Assessment → Decision → Account Setup]
+    STD --> STD_FLOW[Data Validation → Risk → Compliance → Decision → Account → Communication]
+    COMP --> COMP_FLOW[Market → Lead → Data → Risk → Compliance → Decision → Exception → Communication → Account → Monitor → Optimize → Support]
     
-    %% Styling
-    classDef agent fill:#e1f5fe
-    classDef tool fill:#f3e5f5
-    classDef external fill:#fff3e0
-    
-    class A,B,C,D,E,F,G,H,I,J,K,L,M,N agent
-    class B1,C1,D1,E1,F1,G1,H1,I1,J1,K1,L1,M1 tool
-    class EXT1,EXT2,EXT3,EXT4,EXT5 external
+    style START fill:#4caf50
+    style DOC fill:#2196f3
+    style ROUTE fill:#ff9800
+    style EXP fill:#8bc34a
+    style STD fill:#03a9f4
+    style COMP fill:#f44336
+    style EXP_FLOW fill:#c8e6c9
+    style STD_FLOW fill:#b3e5fc
+    style COMP_FLOW fill:#ffcdd2
+        </div>
     </div>
+
+    <div class="workflow">
+        <h2>Express Workflow (3 Optimized Agents)</h2>
+        <p><strong>Time:</strong> 3-8 minutes | <strong>Automation:</strong> 98%</p>
+        <div class="mermaid">
+flowchart TD
+    A[Document Processing DONE<br/>Data extracted and validated] --> B[Risk Assessment<br/>Uses pre-extracted financials]
+    B --> C[Auto Decision<br/>Enhanced with document insights]
+    C --> D[Account Setup]
+    D --> E[End]
+    
+    B -.-> B1[Credit Check + Document Data]
+    C -.-> C1[Smart Auto Approval]
+    D -.-> D1[Account APIs]
+    
+    style A fill:#e3f2fd
+    style B fill:#ff9800
+    style C fill:#9c27b0
+    style D fill:#00bcd4
+    style E fill:#4caf50
+        </div>
+    </div>
+
+    <div class="workflow">
+        <h2>Standard Workflow (5 Optimized Agents)</h2>
+        <p><strong>Time:</strong> 15-35 minutes | <strong>Automation:</strong> 85%</p>
+        <div class="mermaid">
+flowchart TD
+    A[Document Processing DONE<br/>Full data extraction] --> B[Risk Assessment<br/>Enhanced with document data]
+    B --> C[Compliance Check<br/>Uses pre-identified entities]
+    C --> D[Decision Making<br/>Document-informed decisions]
+    D --> E[Account Setup]
+    E --> F[Communication]
+    F --> G[End]
+    
+    B -.-> B1[Credit Bureaus + Document Analysis]
+    C -.-> C1[OFAC + Entity Matching]
+    D -.-> D1[Enhanced Decision Engine]
+    E -.-> E1[Banking APIs]
+    F -.-> F1[Email/SMS]
+    
+    style A fill:#e3f2fd
+    style B fill:#ff9800
+    style C fill:#f44336
+    style D fill:#9c27b0
+    style E fill:#00bcd4
+    style F fill:#ffeb3b
+    style G fill:#4caf50
+        </div>
+    </div>
+
+    <div class="workflow">
+        <h2>Comprehensive Workflow (12 Document-First Agents)</h2>
+        <p><strong>Time:</strong> 45 minutes - 12 hours | <strong>Automation:</strong> 75% | <strong>Optimized:</strong> Removed Application Assistant</p>
+        <div class="mermaid">
+flowchart TD
+    A[Document Processing FIRST<br/>Complete data extraction & routing] --> B[Market Qualification<br/>Uses extracted business data]
+    B --> C[Lead Qualification<br/>Enhanced with document insights]
+    C --> D[Data Validation<br/>Verify extracted data]
+    D --> E[Risk Assessment<br/>Document-enhanced analysis]
+    E --> F[Compliance Verification<br/>Pre-identified entities]
+    F --> G[Decision Making<br/>Document-informed decisions]
+    G --> H[Exception Routing]
+    H --> I[Communication]
+    I --> J[Account Provisioning]
+    J --> K[Monitoring]
+    K --> L[Optimization]
+    L --> M[Onboarding Support]
+    M --> N[End]
+    
+    style A fill:#2196f3,color:#ffffff
+    style B fill:#e91e63
+    style C fill:#9c27b0
+    style D fill:#ff9800
+    style E fill:#ff5722
+    style F fill:#f44336
+    style G fill:#9c27b0
+    style H fill:#ffeb3b
+    style I fill:#00bcd4
+    style J fill:#4caf50
+    style K fill:#607d8b
+    style L fill:#03a9f4
+    style M fill:#8bc34a
+    style N fill:#4caf50
+        </div>
+    </div>
+
+
+
+    <div class="workflow">
+        <h2>Document-First vs Traditional Routing</h2>
+        <div class="mermaid">
+flowchart TD
+    subgraph TRADITIONAL ["Traditional Routing RISKY"]
+        T1[Form Data Only<br/>Self-declared info]
+        T2[File Metadata<br/>Count, size, type]
+        T3[Basic Checks<br/>Name screening only]
+        T4[Guesswork<br/>High error rate]
+    end
+    
+    subgraph DOCUMENT_FIRST ["Document-First Routing SAFE"]
+        D1[OCR Extraction<br/>Actual business data]
+        D2[Document Analysis<br/>Financial statements, licenses]
+        D3[Data Validation<br/>Cross-reference sources]
+        D4[Risk Indicators<br/>Legal issues, inconsistencies]
+    end
+    
+    INPUT[Application] --> TRADITIONAL
+    INPUT --> DOCUMENT_FIRST
+    
+    TRADITIONAL --> WRONG[Wrong Routing<br/>30-50% error rate]
+    DOCUMENT_FIRST --> RIGHT[Accurate Routing<br/>5-10% error rate]
+    
+    WRONG --> RISK[Regulatory Risk<br/>Compliance Failures]
+    RIGHT --> SAFE[Compliant Processing<br/>Proper Due Diligence]
+    
+    style TRADITIONAL fill:#ffcdd2
+    style DOCUMENT_FIRST fill:#c8e6c9
+    style INPUT fill:#4caf50
+    style WRONG fill:#f44336
+    style RIGHT fill:#4caf50
+    style RISK fill:#000000,color:#ffffff
+    style SAFE fill:#2e7d32,color:#ffffff
+        </div>
+    </div>
+    
+    <div class="workflow">
+        <h2>Document-Based Routing Decision</h2>
+        <div class="mermaid">
+flowchart TD
+    DOC[Document Processing Results] --> ANALYZE[Risk Analysis]
+    
+    ANALYZE --> INDUSTRY{Extracted Industry}
+    ANALYZE --> FINANCIAL{Financial Data}
+    ANALYZE --> COMPLIANCE{Compliance Flags}
+    ANALYZE --> QUALITY{Document Quality}
+    
+    INDUSTRY -->|Prohibited Industries| REJECT[Auto Reject]
+    INDUSTRY -->|High-Risk<br/>Crypto, Adult, Gambling| HIGH[High Risk]
+    INDUSTRY -->|Regulated<br/>Finance, Healthcare| MED[Medium Risk]
+    INDUSTRY -->|Standard Business| CHECK_FINANCIAL[Check Financial]
+    
+    FINANCIAL -->|Revenue <$100K + New Business| HIGH
+    FINANCIAL -->|Revenue $100K-$10M + Established| LOW[Low Risk]
+    FINANCIAL -->|Revenue >$10M| MED
+    FINANCIAL -->|Inconsistent Data| HIGH
+    
+    COMPLIANCE -->|Sanctions Match| REJECT
+    COMPLIANCE -->|Legal Issues Found| HIGH
+    COMPLIANCE -->|Missing Required Docs| MED
+    COMPLIANCE -->|Clean Records| CHECK_QUALITY[Check Quality]
+    
+    QUALITY -->|Poor OCR <70% Confidence| HIGH
+    QUALITY -->|Document Inconsistencies| HIGH
+    QUALITY -->|High Quality Data| CONTINUE[Continue Analysis]
+    
+    CHECK_FINANCIAL --> FINANCIAL
+    CHECK_QUALITY --> QUALITY
+    
+    HIGH --> COMP[Comprehensive<br/>11 More Agents]
+    MED --> STD[Standard<br/>6 More Agents]
+    LOW --> EXP[Express<br/>3 More Agents]
+    REJECT --> END[End]
+    
+    style DOC fill:#2196f3
+    style ANALYZE fill:#e3f2fd
+    style INDUSTRY fill:#ff9800
+    style FINANCIAL fill:#4caf50
+    style COMPLIANCE fill:#f44336
+    style QUALITY fill:#9c27b0
+    style HIGH fill:#f44336
+    style MED fill:#ff9800
+    style LOW fill:#4caf50
+    style REJECT fill:#000000,color:#ffffff
+    style COMP fill:#ffcdd2
+    style STD fill:#b3e5fc
+    style EXP fill:#c8e6c9
+    style END fill:#757575
+        </div>
+    </div>
+    
+    <div class="workflow">
+        <h2>Document Processing Overlap Analysis</h2>
+        <div class="mermaid">
+flowchart TD
+    subgraph DOC_AGENT ["Document Processing Agent"]
+        D1[OCR Text Extraction]
+        D2[Document Classification]
+        D3[Basic Data Extraction]
+        D4[Entity Recognition]
+        D5[Financial Data Parsing]
+    end
+    
+    subgraph OVERLAPS ["Potential Overlaps"]
+        O1[Data Validation Agent<br/>OVERLAP: Data extraction]
+        O2[Risk Assessment Agent<br/>OVERLAP: Financial parsing]
+        O3[Application Assistant<br/>OVERLAP: Form validation]
+        O4[Compliance Agent<br/>OVERLAP: Entity extraction]
+    end
+    
+    D3 -.->|HIGH OVERLAP| O1
+    D5 -.->|MEDIUM OVERLAP| O2
+    D4 -.->|LOW OVERLAP| O4
+    D2 -.->|MINIMAL OVERLAP| O3
+    
+    style DOC_AGENT fill:#2196f3
+    style OVERLAPS fill:#ffcdd2
+        </div>
+    </div>
+    
+    <div class="workflow">
+        <h2>CURRENT AGENT EXECUTION SEQUENCES</h2>
+        <div class="mermaid">
+flowchart TD
+    subgraph EXPRESS ["EXPRESS WORKFLOW - 4 Agents"]
+        E1[1. Document Processing<br/>OCR, extraction, validation]
+        E2[2. Risk Assessment<br/>Credit checks, financial analysis]
+        E3[3. Decision Making<br/>Auto-approval logic]
+        E4[4. Account Provisioning<br/>Account setup, API calls]
+        
+        E1 --> E2 --> E3 --> E4
+    end
+    
+    subgraph STANDARD ["STANDARD WORKFLOW - 7 Agents"]
+        S1[1. Document Processing<br/>Full OCR and extraction]
+        S2[2. Data Validation<br/>Cross-reference verification]
+        S3[3. Risk Assessment<br/>Enhanced credit analysis]
+        S4[4. Compliance Verification<br/>OFAC, sanctions screening]
+        S5[5. Decision Making<br/>Multi-factor decisions]
+        S6[6. Account Provisioning<br/>Banking integration]
+        S7[7. Communication<br/>Email/SMS notifications]
+        
+        S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
+    end
+    
+    subgraph COMPREHENSIVE ["COMPREHENSIVE WORKFLOW - 14 Agents"]
+        C1[1. Market Qualification<br/>Industry analysis]
+        C2[2. Lead Qualification<br/>Business viability]
+        C3[3. Application Assistant<br/>Form validation]
+        C4[4. Document Processing<br/>Complete extraction]
+        C5[5. Data Validation<br/>Multi-source verification]
+        C6[6. Risk Assessment<br/>Comprehensive analysis]
+        C7[7. Compliance Verification<br/>Full regulatory check]
+        C8[8. Decision Making<br/>Complex decision tree]
+        C9[9. Exception Routing<br/>Manual review routing]
+        C10[10. Communication<br/>Multi-channel messaging]
+        C11[11. Account Provisioning<br/>Full account setup]
+        C12[12. Monitoring<br/>Real-time tracking]
+        C13[13. Optimization<br/>Performance tuning]
+        C14[14. Onboarding Support<br/>Customer assistance]
+        
+        C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> C8 --> C9 --> C10 --> C11 --> C12 --> C13 --> C14
+    end
+    
+    style EXPRESS fill:#c8e6c9
+    style STANDARD fill:#b3e5fc
+    style COMPREHENSIVE fill:#ffcdd2
+        </div>
+    </div>
+    
+    <div class="workflow">
+        <h2>AGENT EXECUTION ORDER & DEPENDENCIES</h2>
+        <div class="mermaid">
+flowchart TD
+    START[Application Submitted] --> ROUTE{Workflow Router}
+    
+    ROUTE -->|Low Risk| EXP_START[Express: Start]
+    ROUTE -->|Medium Risk| STD_START[Standard: Start]
+    ROUTE -->|High Risk| COMP_START[Comprehensive: Start]
+    
+    subgraph EXP_FLOW ["EXPRESS EXECUTION"]
+        EXP_DOC[Document Processing<br/>Agent #1]
+        EXP_RISK[Risk Assessment<br/>Agent #2]
+        EXP_DEC[Decision Making<br/>Agent #3]
+        EXP_ACC[Account Provisioning<br/>Agent #4]
+        
+        EXP_DOC --> EXP_RISK
+        EXP_RISK --> EXP_DEC
+        EXP_DEC --> EXP_ACC
+    end
+    
+    subgraph STD_FLOW ["STANDARD EXECUTION"]
+        STD_DOC[Document Processing<br/>Agent #1]
+        STD_VAL[Data Validation<br/>Agent #2]
+        STD_RISK[Risk Assessment<br/>Agent #3]
+        STD_COMP[Compliance Verification<br/>Agent #4]
+        STD_DEC[Decision Making<br/>Agent #5]
+        STD_ACC[Account Provisioning<br/>Agent #6]
+        STD_COM[Communication<br/>Agent #7]
+        
+        STD_DOC --> STD_VAL
+        STD_VAL --> STD_RISK
+        STD_RISK --> STD_COMP
+        STD_COMP --> STD_DEC
+        STD_DEC --> STD_ACC
+        STD_ACC --> STD_COM
+    end
+    
+    subgraph COMP_FLOW ["COMPREHENSIVE EXECUTION"]
+        COMP_MKT[Market Qualification<br/>Agent #1]
+        COMP_LEAD[Lead Qualification<br/>Agent #2]
+        COMP_APP[Application Assistant<br/>Agent #3]
+        COMP_DOC[Document Processing<br/>Agent #4]
+        COMP_VAL[Data Validation<br/>Agent #5]
+        COMP_RISK[Risk Assessment<br/>Agent #6]
+        COMP_COMP[Compliance Verification<br/>Agent #7]
+        COMP_DEC[Decision Making<br/>Agent #8]
+        COMP_EXC[Exception Routing<br/>Agent #9]
+        COMP_COM[Communication<br/>Agent #10]
+        COMP_ACC[Account Provisioning<br/>Agent #11]
+        COMP_MON[Monitoring<br/>Agent #12]
+        COMP_OPT[Optimization<br/>Agent #13]
+        COMP_SUP[Onboarding Support<br/>Agent #14]
+        
+        COMP_MKT --> COMP_LEAD
+        COMP_LEAD --> COMP_APP
+        COMP_APP --> COMP_DOC
+        COMP_DOC --> COMP_VAL
+        COMP_VAL --> COMP_RISK
+        COMP_RISK --> COMP_COMP
+        COMP_COMP --> COMP_DEC
+        COMP_DEC --> COMP_EXC
+        COMP_EXC --> COMP_COM
+        COMP_COM --> COMP_ACC
+        COMP_ACC --> COMP_MON
+        COMP_MON --> COMP_OPT
+        COMP_OPT --> COMP_SUP
+    end
+    
+    EXP_START --> EXP_FLOW
+    STD_START --> STD_FLOW
+    COMP_START --> COMP_FLOW
+    
+    EXP_FLOW --> EXP_END[Express Complete]
+    STD_FLOW --> STD_END[Standard Complete]
+    COMP_FLOW --> COMP_END[Comprehensive Complete]
+    
+    style START fill:#4caf50
+    style ROUTE fill:#ff9800
+    style EXP_FLOW fill:#c8e6c9
+    style STD_FLOW fill:#b3e5fc
+    style COMP_FLOW fill:#ffcdd2
+    style EXP_END fill:#4caf50
+    style STD_END fill:#4caf50
+    style COMP_END fill:#4caf50
+        </div>
+    </div>
+    
+    <div class="workflow">
+        <h2>AGENT CAPABILITIES & FIRST EXECUTION</h2>
+        <div class="mermaid">
+flowchart TD
+    subgraph FIRST_AGENTS ["FIRST AGENTS BY WORKFLOW"]
+        F1[Express: Document Processing<br/>Always runs first]
+        F2[Standard: Document Processing<br/>Always runs first]
+        F3[Comprehensive: Market Qualification<br/>Runs first, then others]
+    end
+    
+    subgraph CORE_AGENTS ["CORE PROCESSING AGENTS"]
+        DOC[Document Processing<br/>OCR, extraction, validation<br/>Used in: ALL workflows]
+        RISK[Risk Assessment<br/>Credit, financial analysis<br/>Used in: ALL workflows]
+        DEC[Decision Making<br/>Approval/rejection logic<br/>Used in: ALL workflows]
+        ACC[Account Provisioning<br/>Account setup, APIs<br/>Used in: ALL workflows]
+    end
+    
+    subgraph VALIDATION_AGENTS ["VALIDATION & COMPLIANCE"]
+        VAL[Data Validation<br/>Cross-reference checks<br/>Used in: Standard, Comprehensive]
+        COMP[Compliance Verification<br/>OFAC, sanctions screening<br/>Used in: Standard, Comprehensive]
+    end
+    
+    subgraph QUALIFICATION_AGENTS ["QUALIFICATION AGENTS"]
+        MKT[Market Qualification<br/>Industry analysis<br/>Used in: Comprehensive only]
+        LEAD[Lead Qualification<br/>Business viability<br/>Used in: Comprehensive only]
+        APP[Application Assistant<br/>Form validation<br/>Used in: Comprehensive only]
+    end
+    
+    subgraph SUPPORT_AGENTS ["SUPPORT & MONITORING"]
+        EXC[Exception Routing<br/>Manual review routing<br/>Used in: Comprehensive only]
+        COM[Communication<br/>Email/SMS notifications<br/>Used in: Standard, Comprehensive]
+        MON[Monitoring<br/>Real-time tracking<br/>Used in: Comprehensive only]
+        OPT[Optimization<br/>Performance tuning<br/>Used in: Comprehensive only]
+        SUP[Onboarding Support<br/>Customer assistance<br/>Used in: Comprehensive only]
+    end
+    
+    FIRST_AGENTS --> CORE_AGENTS
+    CORE_AGENTS --> VALIDATION_AGENTS
+    VALIDATION_AGENTS --> QUALIFICATION_AGENTS
+    QUALIFICATION_AGENTS --> SUPPORT_AGENTS
+    
+    style FIRST_AGENTS fill:#4caf50
+    style CORE_AGENTS fill:#2196f3
+    style VALIDATION_AGENTS fill:#ff9800
+    style QUALIFICATION_AGENTS fill:#9c27b0
+    style SUPPORT_AGENTS fill:#607d8b
+        </div>
+    </div>
+    
+    <div class="workflow">
+        <h2>OPTIMIZATION OPPORTUNITY: DOCUMENT-FIRST APPROACH</h2>
+        <div class="mermaid">
+flowchart TD
+    subgraph CURRENT ["CURRENT IMPLEMENTATION"]
+        CURR_EXP[Express: Doc → Risk → Decision → Account]
+        CURR_STD[Standard: Doc → Validation → Risk → Compliance → Decision → Account → Communication]
+        CURR_COMP[Comprehensive: Market → Lead → Assistant → Doc → Validation → Risk → Compliance → Decision → Exception → Communication → Account → Monitor → Optimize → Support]
+    end
+    
+    subgraph OPTIMIZED ["OPTIMIZED DOCUMENT-FIRST"]
+        OPT_EXP[Express: Doc → Risk → Decision → Account<br/>✓ Already optimized]
+        OPT_STD[Standard: Doc → Risk → Compliance → Decision → Account → Communication<br/>⚡ Remove redundant validation]
+        OPT_COMP[Comprehensive: Doc → Market → Lead → Risk → Compliance → Decision → Exception → Communication → Account → Monitor → Optimize → Support<br/>⚡ Remove assistant & validation redundancy]
+    end
+    
+    CURRENT --> ANALYSIS[Overlap Analysis]
+    ANALYSIS --> OPTIMIZED
+    
+    ANALYSIS --> OVERLAP1[Data Validation: 60% overlap with Document Processing]
+    ANALYSIS --> OVERLAP2[Application Assistant: 50% overlap with Document Processing]
+    ANALYSIS --> OVERLAP3[Risk Assessment: 40% faster with pre-extracted data]
+    ANALYSIS --> OVERLAP4[Compliance: 30% faster with pre-identified entities]
+    
+    style CURRENT fill:#ffcdd2
+    style OPTIMIZED fill:#c8e6c9
+    style ANALYSIS fill:#ff9800
+    style OVERLAP1 fill:#ffeb3b
+    style OVERLAP2 fill:#ffeb3b
+    style OVERLAP3 fill:#ffeb3b
+    style OVERLAP4 fill:#ffeb3bES --> C3[Application Assistant: Validate against extracted data]
+    CHANGES --> C4[Compliance: Use pre-identified entities]
+    
+    style BEFORE fill:#ffcdd2
+    style AFTER fill:#c8e6c9
+    style CHANGES fill:#fff3e0
+        </div>
+    </div>
+    
+    <div class="workflow">
+        <h2>Agent Efficiency Improvements</h2>
+        <div class="mermaid">
+flowchart TD
+    DOC[Document Processing Results] --> SHARED[Shared Data Store]
+    
+    SHARED --> DATA_VAL[Data Validation<br/>60% faster - no extraction]
+    SHARED --> RISK[Risk Assessment<br/>40% faster - pre-parsed financials]
+    SHARED --> APP_ASSIST[Application Assistant<br/>50% faster - data comparison only]
+    SHARED --> COMPLIANCE[Compliance<br/>30% faster - entities pre-identified]
+    
+    DATA_VAL --> SAVINGS1[Time Saved: 2-3 minutes]
+    RISK --> SAVINGS2[Time Saved: 1-2 minutes]
+    APP_ASSIST --> SAVINGS3[Time Saved: 1-2 minutes]
+    COMPLIANCE --> SAVINGS4[Time Saved: 30-60 seconds]
+    
+    TOTAL[Total Efficiency Gain: 4-7 minutes per application]
+    
+    SAVINGS1 --> TOTAL
+    SAVINGS2 --> TOTAL
+    SAVINGS3 --> TOTAL
+    SAVINGS4 --> TOTAL
+    
+    style DOC fill:#2196f3
+    style SHARED fill:#e3f2fd
+    style TOTAL fill:#4caf50
+        </div>
+    </div>
+
     <script>
         mermaid.initialize({startOnLoad:true});
     </script>

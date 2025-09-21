@@ -163,10 +163,14 @@ def create_standard_workflow():
     return workflow.compile()
 
 def create_comprehensive_workflow():
-    """14 agent workflow for high-risk merchants (existing implementation)"""
+    """12 agent document-first workflow for high-risk merchants"""
     workflow = StateGraph(MerchantOnboardingState)
     
-    # Load all agents
+    # Load agents in document-first order (removed application_assistant)
+    document_processing_agent = load_agent(
+        os.path.join(base_path, 'agents', 'document-processing', 'src', 'agent.py'),
+        'document_processing_agent'
+    )
     market_qualification_agent = load_agent(
         os.path.join(base_path, 'agents', 'market-qualification', 'src', 'agent.py'),
         'market_qualification_agent'
@@ -174,14 +178,6 @@ def create_comprehensive_workflow():
     lead_qualification_agent = load_agent(
         os.path.join(base_path, 'agents', 'lead-qualification', 'src', 'agent.py'),
         'lead_qualification_agent'
-    )
-    application_assistant_agent = load_agent(
-        os.path.join(base_path, 'agents', 'application-assistant', 'src', 'agent.py'),
-        'application_assistant_agent'
-    )
-    document_processing_agent = load_agent(
-        os.path.join(base_path, 'agents', 'document-processing', 'src', 'agent.py'),
-        'document_processing_agent'
     )
     data_validation_agent = load_agent(
         os.path.join(base_path, 'agents', 'data-validation', 'src', 'agent.py'),
@@ -224,11 +220,10 @@ def create_comprehensive_workflow():
         'onboarding_support_agent'
     )
     
-    # Add all nodes with progress tracking
+    # Add nodes in document-first order
+    workflow.add_node("document_processing", create_agent_wrapper(document_processing_agent, "document_processing"))
     workflow.add_node("market_qualification", create_agent_wrapper(market_qualification_agent, "market_qualification"))
     workflow.add_node("lead_qualification", create_agent_wrapper(lead_qualification_agent, "lead_qualification"))
-    workflow.add_node("application_assistant", create_agent_wrapper(application_assistant_agent, "application_assistant"))
-    workflow.add_node("document_processing", create_agent_wrapper(document_processing_agent, "document_processing"))
     workflow.add_node("data_validation", create_agent_wrapper(data_validation_agent, "data_validation"))
     workflow.add_node("risk_assessment", create_agent_wrapper(risk_assessment_agent, "risk_assessment"))
     workflow.add_node("compliance_verification", create_agent_wrapper(compliance_verification_agent, "compliance_verification"))
@@ -240,12 +235,11 @@ def create_comprehensive_workflow():
     workflow.add_node("optimization", create_agent_wrapper(optimization_agent, "optimization"))
     workflow.add_node("onboarding_support", create_agent_wrapper(onboarding_support_agent, "onboarding_support"))
     
-    # Define complete 14-agent flow
-    workflow.set_entry_point("market_qualification")
+    # Define document-first 12-agent flow
+    workflow.set_entry_point("document_processing")
+    workflow.add_edge("document_processing", "market_qualification")
     workflow.add_edge("market_qualification", "lead_qualification")
-    workflow.add_edge("lead_qualification", "application_assistant")
-    workflow.add_edge("application_assistant", "document_processing")
-    workflow.add_edge("document_processing", "data_validation")
+    workflow.add_edge("lead_qualification", "data_validation")
     workflow.add_edge("data_validation", "risk_assessment")
     workflow.add_edge("risk_assessment", "compliance_verification")
     workflow.add_edge("compliance_verification", "decision_making")

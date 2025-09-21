@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Diagrams - Merchant Onboarding</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .workflow { margin: 40px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .workflow h2 { color: #333; margin-top: 0; }
+        .mermaid { text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>Merchant Onboarding Workflows</h1>
+
+    <div class="workflow">
+        <h2>Express Workflow (Low Risk)</h2>
+        <p><strong>Time:</strong> 5-15 minutes | <strong>Automation:</strong> 95%</p>
+        <div class="mermaid">
+flowchart TD
+    A[Document Processing] --> B[Risk Assessment]
+    B --> C[Auto Decision]
+    C --> D[Account Setup]
+    
+    style A fill:#e1f5fe
+    style B fill:#e8f5e8
+    style C fill:#fff3e0
+    style D fill:#f3e5f5
+        </div>
+    </div>
+
+    <div class="workflow">
+        <h2>Standard Workflow (Medium Risk)</h2>
+        <p><strong>Time:</strong> 30-60 minutes | <strong>Automation:</strong> 75%</p>
+        <div class="mermaid">
+flowchart TD
+    A[Document Processing] --> B[Data Validation]
+    B --> C[Risk Assessment]
+    C --> D[Compliance Check]
+    D --> E[Decision Making]
+    E --> F[Account Setup]
+    F --> G[Communication]
+    
+    style A fill:#e1f5fe
+    style B fill:#e8f5e8
+    style C fill:#fff3e0
+    style D fill:#fce4ec
+    style E fill:#f3e5f5
+    style F fill:#e0f2f1
+    style G fill:#fff8e1
+        </div>
+    </div>
+
+    <div class="workflow">
+        <h2>Comprehensive Workflow (High Risk)</h2>
+        <p><strong>Time:</strong> 2-24 hours | <strong>Automation:</strong> 60%</p>
+        <div class="mermaid">
+flowchart TD
+    A[Market Qualification] --> B[Lead Qualification]
+    B --> C[Application Assistant]
+    C --> D[Document Processing]
+    D --> E[Data Validation]
+    E --> F[Risk Assessment]
+    F --> G[Compliance Verification]
+    G --> H[Decision Making]
+    H --> I[Exception Routing]
+    I --> J[Communication]
+    J --> K[Account Provisioning]
+    K --> L[Monitoring]
+    L --> M[Optimization]
+    M --> N[Onboarding Support]
+    
+    style A fill:#ffebee
+    style B fill:#f3e5f5
+    style C fill:#e8eaf6
+    style D fill:#e1f5fe
+    style E fill:#e8f5e8
+    style F fill:#fff3e0
+    style G fill:#fce4ec
+    style H fill:#f3e5f5
+    style I fill:#fff8e1
+    style J fill:#e0f2f1
+    style K fill:#f1f8e9
+    style L fill:#fafafa
+    style M fill:#e3f2fd
+    style N fill:#f9fbe7
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</body>
+</html>

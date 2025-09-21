@@ -424,22 +424,52 @@
         function generateAgentStatusIndicators(agentResults) {
             if (!agentResults) return '';
             
-            const agents = [
-                { key: 'market_qualification', name: 'Market Qualification' },
-                { key: 'lead_qualification', name: 'Lead Qualification' },
-                { key: 'application_assistant', name: 'Application Assistant' },
-                { key: 'document_processing', name: 'Document Processing' },
-                { key: 'data_validation', name: 'Data Validation' },
-                { key: 'risk_assessment', name: 'Risk Assessment' },
-                { key: 'compliance_verification', name: 'Compliance Verification' },
-                { key: 'decision', name: 'Decision Making' },
-                { key: 'exception_routing', name: 'Exception Routing' },
-                { key: 'communication', name: 'Communication' },
-                { key: 'account_provisioning', name: 'Account Provisioning' },
-                { key: 'monitoring', name: 'Monitoring' },
-                { key: 'optimization', name: 'Optimization' },
-                { key: 'onboarding_support', name: 'Onboarding Support' }
-            ];
+            // Determine workflow pattern based on which agents have results
+            const workflowAgents = {
+                'express_workflow': [
+                    { key: 'document_processing', name: 'Document Processing' },
+                    { key: 'risk_assessment', name: 'Risk Assessment' },
+                    { key: 'decision_making', name: 'Decision Making' },
+                    { key: 'account_provisioning', name: 'Account Provisioning' }
+                ],
+                'standard_workflow': [
+                    { key: 'document_processing', name: 'Document Processing' },
+                    { key: 'data_validation', name: 'Data Validation' },
+                    { key: 'risk_assessment', name: 'Risk Assessment' },
+                    { key: 'compliance_verification', name: 'Compliance Verification' },
+                    { key: 'decision_making', name: 'Decision Making' },
+                    { key: 'account_provisioning', name: 'Account Provisioning' },
+                    { key: 'communication', name: 'Communication' }
+                ],
+                'comprehensive_workflow': [
+                    { key: 'document_processing', name: 'Document Processing' },
+                    { key: 'market_qualification', name: 'Market Qualification' },
+                    { key: 'lead_qualification', name: 'Lead Qualification' },
+                    { key: 'data_validation', name: 'Data Validation' },
+                    { key: 'risk_assessment', name: 'Risk Assessment' },
+                    { key: 'compliance_verification', name: 'Compliance Verification' },
+                    { key: 'decision_making', name: 'Decision Making' },
+                    { key: 'exception_routing', name: 'Exception Routing' },
+                    { key: 'communication', name: 'Communication' },
+                    { key: 'account_provisioning', name: 'Account Provisioning' },
+                    { key: 'monitoring', name: 'Monitoring' },
+                    { key: 'optimization', name: 'Optimization' },
+                    { key: 'onboarding_support', name: 'Onboarding Support' }
+                ]
+            };
+            
+            // Detect workflow pattern based on agent results
+            let agents = workflowAgents['comprehensive_workflow']; // default
+            const resultKeys = Object.keys(agentResults);
+            
+            if (resultKeys.length <= 4) {
+                agents = workflowAgents['express_workflow'];
+            } else if (resultKeys.length <= 7) {
+                agents = workflowAgents['standard_workflow'];
+            }
+            
+            // Filter to only show agents that have results
+            agents = agents.filter(agent => agentResults.hasOwnProperty(agent.key));
             
             return agents.map(agent => {
                 const result = agentResults[agent.key];
