@@ -1,0 +1,65 @@
+jurisdiction: EU
+name: "European Union"
+currency: EUR
+date_format: "DD/MM/YYYY"
+language: "en-EU"
+processing_sla_hours: 120
+
+required_documents:
+  GmbH:
+    - handelsregister
+    - gesellschaftsvertrag
+    - vat_certificate
+  SAS:
+    - kbis
+    - statuts
+    - vat_certificate
+  BV:
+    - kvk_uittreksel
+    - statuten
+    - vat_certificate
+
+compliance_rules:
+  - GDPR
+  - PSD2
+  - 5AMLD
+  - MiFID_II
+
+integrations:
+  credit_bureau: schufa
+  bank_verification: tink
+  business_registry: european_business_registry
+  sanctions_screening: eu_sanctions
+  identity_verification: trulioo
+
+risk_factors:
+  - vat_status
+  - trade_register_status
+  - industry_risk
+  - country_risk
+  - business_age
+  - annual_revenue
+  - eu_compliance
+
+high_risk_industries:
+  - gambling
+  - adult
+  - cryptocurrency
+  - forex
+  - debt_collection
+  - payday_loans
+  - telemarketing
+
+processing_limits:
+  LOW:
+    daily_limit: 40000
+    monthly_limit: 800000
+    single_transaction_limit: 8000
+  MEDIUM:
+    daily_limit: 8000
+    monthly_limit: 160000
+    single_transaction_limit: 2000
+  HIGH:
+    daily_limit: 4000
+    monthly_limit: 40000
+    single_transaction_limit: 800

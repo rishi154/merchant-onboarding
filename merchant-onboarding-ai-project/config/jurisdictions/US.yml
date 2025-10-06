@@ -1,0 +1,64 @@
+jurisdiction: US
+name: "United States"
+currency: USD
+date_format: "MM/DD/YYYY"
+language: "en-US"
+processing_sla_hours: 72
+
+required_documents:
+  LLC:
+    - articles_of_organization
+    - ein_letter
+    - operating_agreement
+  Corporation:
+    - articles_of_incorporation
+    - ein_letter
+    - bylaws
+  Partnership:
+    - partnership_agreement
+    - ein_letter
+
+compliance_rules:
+  - BSA
+  - OFAC
+  - FinCEN
+  - State_Licensing
+
+integrations:
+  credit_bureau: experian_us
+  bank_verification: plaid
+  business_registry: secretary_of_state
+  sanctions_screening: ofac
+  identity_verification: jumio
+
+risk_factors:
+  - credit_score
+  - business_age
+  - industry_risk
+  - state_risk
+  - annual_revenue
+  - debt_to_income
+  - previous_bankruptcies
+
+high_risk_industries:
+  - gambling
+  - adult
+  - cryptocurrency
+  - forex
+  - debt_collection
+  - payday_loans
+  - telemarketing
+
+processing_limits:
+  LOW:
+    daily_limit: 50000
+    monthly_limit: 1000000
+    single_transaction_limit: 10000
+  MEDIUM:
+    daily_limit: 10000
+    monthly_limit: 200000
+    single_transaction_limit: 2500
+  HIGH:
+    daily_limit: 5000
+    monthly_limit: 50000
+    single_transaction_limit: 1000

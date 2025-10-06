@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processing Analytics - Merchant Onboarding</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">Processing Analytics</h1>
+        
+        <!-- Key Metrics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">Total Applications</h3>
+                <p id="total-apps" class="text-2xl font-bold text-gray-900">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">Avg Processing Time</h3>
+                <p id="avg-time" class="text-2xl font-bold text-blue-600">0 min</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">Automation Rate</h3>
+                <p id="automation-rate" class="text-2xl font-bold text-green-600">0%</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-sm font-medium text-gray-500">Success Rate</h3>
+                <p id="success-rate" class="text-2xl font-bold text-purple-600">0%</p>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Processing Time Trend -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-4">Processing Time Trend</h3>
+                <canvas id="timeChart" width="400" height="200"></canvas>
+            </div>
+
+            <!-- Automation Rate -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-4">Automation vs Manual</h3>
+                <canvas id="automationChart" width="400" height="200"></canvas>
+            </div>
+
+            <!-- Agent Performance -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-4">Agent Success Rates</h3>
+                <canvas id="agentChart" width="400" height="200"></canvas>
+            </div>
+
+            <!-- Risk Score Distribution -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-4">Risk Score Distribution</h3>
+                <canvas id="riskChart" width="400" height="200"></canvas>
+            </div>
+
+            <!-- Processing Volume -->
+            <div class="bg-white p-6 rounded-lg shadow col-span-1 lg:col-span-2">
+                <h3 class="text-lg font-semibold mb-4">Daily Processing Volume</h3>
+                <canvas id="volumeChart" width="800" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let charts = {};
+
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/analytics');
+                const data = await response.json();
+                
+                updateMetrics(data.metrics);
+                createCharts(data);
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                // Load with mock data
+                loadMockData();
+            }
+        }
+
+        function updateMetrics(metrics) {
+            document.getElementById('total-apps').textContent = metrics.total_applications;
+            document.getElementById('avg-time').textContent = `${metrics.avg_processing_time} min`;
+            document.getElementById('automation-rate').textContent = `${metrics.automation_rate}%`;
+            document.getElementById('success-rate').textContent = `${metrics.success_rate}%`;
+        }
+
+        function createCharts(data) {
+            // Processing Time Trend
+            charts.timeChart = new Chart(document.getElementById('timeChart'), {
+                type: 'line',
+                data: {
+                    labels: data.time_trend.labels,
+                    datasets: [{
+                        label: 'Processing Time (min)',
+                        data: data.time_trend.values,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Automation Rate Pie Chart
+            charts.automationChart = new Chart(document.getElementById('automationChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Automated', 'Manual Review'],
+                    datasets: [{
+                        data: [data.automation.automated, data.automation.manual],
+                        backgroundColor: ['#10b981', '#f59e0b']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // Agent Performance Bar Chart
+            charts.agentChart = new Chart(document.getElementById('agentChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.agent_performance.agents,
+                    datasets: [{
+                        label: 'Success Rate (%)',
+                        data: data.agent_performance.success_rates,
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, max: 100 }
+                    }
+                }
+            });
+
+            // Risk Score Distribution
+            charts.riskChart = new Chart(document.getElementById('riskChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['0-20', '21-40', '41-60', '61-80', '81-100'],
+                    datasets: [{
+                        label: 'Applications',
+                        data: data.risk_distribution,
+                        backgroundColor: [
+                            '#10b981', '#22c55e', '#eab308', '#f97316', '#ef4444'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Processing Volume
+            charts.volumeChart = new Chart(document.getElementById('volumeChart'), {
+                type: 'bar',
+                data: {
+                    labels: data.volume.labels,
+                    datasets: [
+                        {
+                            label: 'Submitted',
+                            data: data.volume.submitted,
+                            backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                        },
+                        {
+                            label: 'Approved',
+                            data: data.volume.approved,
+                            backgroundColor: 'rgba(34, 197, 94, 0.8)'
+                        },
+                        {
+                            label: 'Declined',
+                            data: data.volume.declined,
+                            backgroundColor: 'rgba(239, 68, 68, 0.8)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { stacked: false },
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function loadMockData() {
+            const mockData = {
+                metrics: {
+                    total_applications: 1247,
+                    avg_processing_time: 18,
+                    automation_rate: 73,
+                    success_rate: 89
+                },
+                time_trend: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    values: [25, 22, 18, 15, 12, 8, 10]
+                },
+                automation: {
+                    automated: 73,
+                    manual: 27
+                },
+                agent_performance: {
+                    agents: ['Document', 'Risk', 'Compliance', 'Decision'],
+                    success_rates: [95, 87, 92, 89]
+                },
+                risk_distribution: [45, 32, 18, 12, 3],
+                volume: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                    submitted: [45, 52, 38, 41, 47],
+                    approved: [32, 38, 28, 31, 35],
+                    declined: [8, 9, 6, 7, 8]
+                }
+            };
+            
+            updateMetrics(mockData.metrics);
+            createCharts(mockData);
+        }
+
+        // Load analytics on page load
+        window.addEventListener('load', loadAnalytics);
+    </script>
+</body>
+</html>

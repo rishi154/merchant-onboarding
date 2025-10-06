@@ -1,0 +1,59 @@
+jurisdiction: CA
+name: "Canada"
+currency: CAD
+date_format: "DD/MM/YYYY"
+language: "en-CA"
+processing_sla_hours: 96
+
+required_documents:
+  Corporation:
+    - articles_of_incorporation
+    - business_number
+    - provincial_registration
+  LLC:
+    - articles_of_organization
+    - business_number
+
+compliance_rules:
+  - FINTRAC
+  - PIPEDA
+  - Provincial_Regs
+
+integrations:
+  credit_bureau: equifax_ca
+  bank_verification: flinks
+  business_registry: corporations_canada
+  sanctions_screening: fintrac
+  identity_verification: jumio
+
+risk_factors:
+  - credit_score
+  - business_age
+  - industry_risk
+  - province_risk
+  - annual_revenue
+  - cra_status
+  - previous_insolvencies
+
+high_risk_industries:
+  - gambling
+  - adult
+  - cryptocurrency
+  - forex
+  - debt_collection
+  - payday_loans
+  - telemarketing
+
+processing_limits:
+  LOW:
+    daily_limit: 35000
+    monthly_limit: 700000
+    single_transaction_limit: 7000
+  MEDIUM:
+    daily_limit: 7000
+    monthly_limit: 140000
+    single_transaction_limit: 1750
+  HIGH:
+    daily_limit: 3500
+    monthly_limit: 35000
+    single_transaction_limit: 700

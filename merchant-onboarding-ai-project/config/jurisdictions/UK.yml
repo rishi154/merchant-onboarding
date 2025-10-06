@@ -1,0 +1,59 @@
+jurisdiction: UK
+name: "United Kingdom"
+currency: GBP
+date_format: "DD/MM/YYYY"
+language: "en-GB"
+processing_sla_hours: 96
+
+required_documents:
+  Limited:
+    - certificate_of_incorporation
+    - memorandum
+    - articles_of_association
+  LLP:
+    - incorporation_document
+    - llp_agreement
+
+compliance_rules:
+  - FCA
+  - PCI-DSS
+  - MLR_2017
+
+integrations:
+  credit_bureau: experian_uk
+  bank_verification: truelayer
+  business_registry: companies_house
+  sanctions_screening: hmt_sanctions
+  identity_verification: onfido
+
+risk_factors:
+  - companies_house_status
+  - credit_rating
+  - industry_risk
+  - vat_status
+  - business_age
+  - annual_turnover
+  - county_risk
+
+high_risk_industries:
+  - gambling
+  - adult
+  - cryptocurrency
+  - forex
+  - debt_collection
+  - payday_loans
+  - telemarketing
+
+processing_limits:
+  LOW:
+    daily_limit: 30000
+    monthly_limit: 600000
+    single_transaction_limit: 7500
+  MEDIUM:
+    daily_limit: 7500
+    monthly_limit: 150000
+    single_transaction_limit: 2000
+  HIGH:
+    daily_limit: 3000
+    monthly_limit: 30000
+    single_transaction_limit: 750
