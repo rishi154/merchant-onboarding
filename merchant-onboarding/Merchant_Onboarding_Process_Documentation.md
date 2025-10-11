@@ -56,12 +56,13 @@ This document outlines a comprehensive merchant onboarding transformation strate
 ## Table of Contents
 
 1. [Process Overview](#process-overview)
-2. [Phase-by-Phase Breakdown](#phase-by-phase-breakdown)
-3. [Technology Stack](#technology-stack)
-4. [Compliance Framework](#compliance-framework)
-5. [Risk Management](#risk-management)
-6. [Performance Metrics](#performance-metrics)
-7. [Implementation Guidelines](#implementation-guidelines)
+2. [System Architecture Diagrams](#system-architecture-diagrams)
+3. [Phase-by-Phase Breakdown](#phase-by-phase-breakdown)
+4. [Technology Stack](#technology-stack)
+5. [Compliance Framework](#compliance-framework)
+6. [Risk Management](#risk-management)
+7. [Performance Metrics](#performance-metrics)
+8. [Implementation Guidelines](#implementation-guidelines)
 
 ---
 
@@ -80,6 +81,214 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - **Risk-Based Processing**: Tailored automation levels based on merchant complexity
 - **Regulatory Compliance**: Built-in compliance with global regulations
 - **Continuous Improvement**: Feedback loops for ongoing optimization
+
+---
+
+## System Architecture Diagrams
+
+### Overall System Architecture
+
+```mermaid
+graph TB
+    subgraph "Merchant Interface"
+        A[Merchant Portal] --> B[Application Form]
+        B --> C[Document Upload]
+    end
+    
+    subgraph "AI/ML Processing Layer"
+        D[Application Classifier] --> E[Risk Assessment Engine]
+        E --> F[Document Processing AI]
+        F --> G[Compliance Verification]
+        G --> H[Decision Engine]
+    end
+    
+    subgraph "External Integrations"
+        I[Banking APIs<br/>Plaid, Yodlee]
+        J[Credit Bureaus<br/>Experian, Equifax]
+        K[Government DBs<br/>Secretary of State, IRS]
+        L[KYC/AML Providers<br/>Jumio, Onfido]
+    end
+    
+    subgraph "Legacy Systems"
+        M[Core Banking System]
+        N[Risk Management Platform]
+        O[Compliance Database]
+        P[CRM System]
+    end
+    
+    C --> D
+    E --> I
+    E --> J
+    G --> K
+    G --> L
+    H --> M
+    H --> N
+    H --> O
+    H --> P
+    
+    style A fill:#e1f5fe
+    style D fill:#f3e5f5
+    style E fill:#f3e5f5
+    style F fill:#f3e5f5
+    style G fill:#f3e5f5
+    style H fill:#f3e5f5
+    style I fill:#fff3e0
+    style J fill:#fff3e0
+    style K fill:#fff3e0
+    style L fill:#fff3e0
+```
+
+### Processing Flow by Complexity Level
+
+```mermaid
+flowchart TD
+    Start([Application Received]) --> Classify{AI Classification}
+    
+    Classify -->|60% of Applications| Low[Low Complexity<br/>3-5 Days<br/>80% Automation]
+    Classify -->|30% of Applications| Medium[Medium Complexity<br/>5-8 Days<br/>60% Automation]
+    Classify -->|10% of Applications| High[High Complexity<br/>8-15 Days<br/>40% Automation]
+    
+    Low --> AutoDoc[Automated Document Processing]
+    Medium --> SemiDoc[Semi-Automated Processing]
+    High --> ManualDoc[Manual Review Required]
+    
+    AutoDoc --> AutoRisk[Automated Risk Assessment]
+    SemiDoc --> SemiRisk[Risk Assessment + Review]
+    ManualDoc --> ManualRisk[Manual Risk Analysis]
+    
+    AutoRisk --> AutoDecision[Automated Decision]
+    SemiRisk --> ReviewDecision[Review + Decision]
+    ManualRisk --> ManualDecision[Manual Underwriting]
+    
+    AutoDecision --> Approved{Decision}
+    ReviewDecision --> Approved
+    ManualDecision --> Approved
+    
+    Approved -->|Yes| Setup[Account Setup]
+    Approved -->|No| Decline[Application Declined]
+    Approved -->|Conditional| Conditional[Conditional Approval]
+    
+    Setup --> Complete([Onboarding Complete])
+    Decline --> End([Process End])
+    Conditional --> Monitor[Enhanced Monitoring]
+    Monitor --> Complete
+    
+    style Low fill:#c8e6c9
+    style Medium fill:#fff9c4
+    style High fill:#ffcdd2
+    style AutoDecision fill:#e8f5e8
+    style ReviewDecision fill:#fff8e1
+    style ManualDecision fill:#fce4ec
+```
+
+### Technology Integration Architecture
+
+```mermaid
+graph LR
+    subgraph "Frontend Layer"
+        A[Merchant Portal]
+        B[Admin Dashboard]
+        C[Mobile App]
+    end
+    
+    subgraph "API Gateway"
+        D[Authentication]
+        E[Rate Limiting]
+        F[Load Balancer]
+    end
+    
+    subgraph "Microservices"
+        G[Application Service]
+        H[Document Service]
+        I[Risk Service]
+        J[Decision Service]
+        K[Notification Service]
+    end
+    
+    subgraph "AI/ML Services"
+        L[Document AI]
+        M[Risk Models]
+        N[NLP Engine]
+        O[Computer Vision]
+    end
+    
+    subgraph "Data Layer"
+        P[(Application DB)]
+        Q[(Document Store)]
+        R[(Analytics DB)]
+        S[(Cache Layer)]
+    end
+    
+    A --> D
+    B --> D
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    F --> H
+    F --> I
+    F --> J
+    F --> K
+    
+    H --> L
+    I --> M
+    G --> N
+    H --> O
+    
+    G --> P
+    H --> Q
+    I --> R
+    J --> S
+    
+    style A fill:#e3f2fd
+    style L fill:#f3e5f5
+    style M fill:#f3e5f5
+    style N fill:#f3e5f5
+    style O fill:#f3e5f5
+```
+
+### Automation Timeline and Phases
+
+```mermaid
+gantt
+    title Implementation Timeline
+    dateFormat  YYYY-MM-DD
+    section Phase 1: Foundation
+    Core AI Implementation    :active, p1, 2024-01-01, 90d
+    Legacy Integration       :p1a, after p1, 30d
+    section Phase 2: Enhancement
+    Advanced Features        :p2, 2024-04-01, 120d
+    Real-time APIs          :p2a, after p2, 60d
+    section Phase 3: Optimization
+    Full Automation         :p3, 2024-08-01, 120d
+    Performance Tuning      :p3a, after p3, 60d
+    section Milestones
+    40% Automation          :milestone, m1, 2024-03-31, 0d
+    60% Automation          :milestone, m2, 2024-07-31, 0d
+    70% Automation Target   :milestone, m3, 2024-11-30, 0d
+```
+
+### Risk-Based Processing Matrix
+
+```mermaid
+quadrantChart
+    title Risk vs Complexity Processing Matrix
+    x-axis Low Risk --> High Risk
+    y-axis Low Complexity --> High Complexity
+    quadrant-1 Enhanced Review
+    quadrant-2 Manual Underwriting
+    quadrant-3 Automated Processing
+    quadrant-4 Standard Review
+    
+    Standard Retail: [0.2, 0.3]
+    E-commerce SMB: [0.3, 0.4]
+    Professional Services: [0.25, 0.35]
+    Healthcare: [0.6, 0.7]
+    Financial Services: [0.8, 0.8]
+    High-Risk Industries: [0.9, 0.9]
+    Startups: [0.5, 0.2]
+    Enterprise: [0.4, 0.8]
+```
 
 ---
 
@@ -110,6 +319,32 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - **Conditional Approval**: Available for low-risk merchants (optional implementation)
 - **Parallel Processing**: All verifications run simultaneously
 - **Real-time Integrations**: Modern APIs (examples: Plaid for banking, Experian for credit)
+
+#### Application Intake Flow Diagram
+
+```mermaid
+flowchart TD
+    A[Merchant Applies] --> B{Pre-Screening}
+    B --> C[Industry Classification]
+    C --> D[Risk Assessment]
+    D --> E{Complexity Level}
+    
+    E -->|Low| F[Automated Path<br/>3-5 Days]
+    E -->|Medium| G[Semi-Automated Path<br/>5-8 Days]
+    E -->|High| H[Manual Review Path<br/>8-15 Days]
+    
+    F --> I[Queue: Auto Processing]
+    G --> J[Queue: Standard Review]
+    H --> K[Queue: Manual Underwriting]
+    
+    I --> L[SLA: 3-5 Days]
+    J --> M[SLA: 5-8 Days]
+    K --> N[SLA: 8-15 Days]
+    
+    style F fill:#c8e6c9
+    style G fill:#fff9c4
+    style H fill:#ffcdd2
+```
 
 ---
 
@@ -144,6 +379,29 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - GenAI conversational interfaces
 - Progressive web applications
 - Real-time communication tools
+
+#### Lead Management Flow
+
+```mermaid
+sequenceDiagram
+    participant M as Merchant
+    participant P as Portal
+    participant AI as AI Engine
+    participant CRM as CRM System
+    participant Q as Processing Queue
+    
+    M->>P: Initial Interest
+    P->>AI: Lead Scoring
+    AI->>CRM: Enrich Data
+    CRM-->>AI: Historical Data
+    AI->>AI: Calculate Score
+    AI->>Q: Route to Queue
+    Q->>P: Assign Timeline
+    P->>M: Expectation Setting
+    
+    Note over AI: ML-based scoring
+    Note over Q: Priority assignment
+```
 
 ---
 
@@ -193,6 +451,57 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - State management systems
 - Conditional logic engines
 
+#### Data Collection and Validation Architecture
+
+```mermaid
+graph TB
+    subgraph "Data Collection Layer"
+        A[Adaptive Forms] --> B[Real-time Validation]
+        B --> C[Progress Tracking]
+    end
+    
+    subgraph "AI Processing"
+        D[Classification Engine]
+        E[Risk Scoring]
+        F[Document Intelligence]
+    end
+    
+    subgraph "External Validation"
+        G[Government APIs]
+        H[Banking APIs]
+        I[Credit Bureaus]
+        J[KYC Providers]
+    end
+    
+    subgraph "Legacy Integration"
+        K[Core Banking]
+        L[Risk Platform]
+        M[Compliance DB]
+    end
+    
+    C --> D
+    D --> E
+    E --> F
+    
+    F --> G
+    F --> H
+    F --> I
+    F --> J
+    
+    F --> K
+    F --> L
+    F --> M
+    
+    style A fill:#e3f2fd
+    style D fill:#f3e5f5
+    style E fill:#f3e5f5
+    style F fill:#f3e5f5
+    style G fill:#fff3e0
+    style H fill:#fff3e0
+    style I fill:#fff3e0
+    style J fill:#fff3e0
+```
+
 ---
 
 ## Phase 3: Document Collection & Processing
@@ -236,6 +545,44 @@ This document outlines a comprehensive merchant onboarding transformation strate
 4. Exception handling and manual review
 5. Data structuring and normalization
 
+#### Document Processing Pipeline
+
+```mermaid
+flowchart LR
+    A[Document Upload] --> B{Document Type}
+    
+    B -->|Business License| C[License Processor]
+    B -->|Financial Docs| D[Financial Processor]
+    B -->|Identity Docs| E[Identity Processor]
+    B -->|Other| F[General Processor]
+    
+    C --> G[OCR Engine]
+    D --> G
+    E --> G
+    F --> G
+    
+    G --> H{Quality Check}
+    H -->|Pass| I[Data Extraction]
+    H -->|Fail| J[Enhancement Engine]
+    
+    J --> K[Re-process]
+    K --> H
+    
+    I --> L[Validation Engine]
+    L --> M{Validation Result}
+    
+    M -->|Valid| N[Structured Data]
+    M -->|Invalid| O[Manual Review]
+    
+    N --> P[Integration Ready]
+    O --> Q[Exception Queue]
+    
+    style G fill:#f3e5f5
+    style I fill:#f3e5f5
+    style J fill:#fff3e0
+    style L fill:#e8f5e8
+```
+
 ---
 
 ## Phase 4: Identity Verification & Compliance
@@ -269,6 +616,37 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - Customer Due Diligence (CDD) procedures
 - Enhanced Due Diligence (EDD) for high-risk merchants
 - Suspicious Activity Report (SAR) capabilities
+
+#### KYC/AML Compliance Flow
+
+```mermaid
+stateDiagram-v2
+    [*] --> Identity_Verification
+    Identity_Verification --> Document_Check
+    Document_Check --> Sanctions_Screening
+    
+    Sanctions_Screening --> Clean : No Matches
+    Sanctions_Screening --> Investigation : Potential Match
+    
+    Clean --> PEP_Check
+    Investigation --> Manual_Review
+    
+    PEP_Check --> Low_Risk : Not PEP
+    PEP_Check --> Enhanced_DD : PEP Identified
+    
+    Low_Risk --> Approved
+    Enhanced_DD --> Senior_Review
+    Manual_Review --> Senior_Review
+    
+    Senior_Review --> Approved : Clear
+    Senior_Review --> Declined : Risk Too High
+    Senior_Review --> Conditional : Monitoring Required
+    
+    Approved --> [*]
+    Declined --> [*]
+    Conditional --> Enhanced_Monitoring
+    Enhanced_Monitoring --> [*]
+```
 
 ---
 
@@ -337,6 +715,51 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - Monitoring requirement specifications
 - Reserve requirement calculations
 
+#### Multi-Dimensional Risk Assessment
+
+```mermaid
+radar
+    title Risk Assessment Dimensions
+    "Credit Risk" : 0.7
+    "Fraud Risk" : 0.3
+    "Operational Risk" : 0.5
+    "Regulatory Risk" : 0.4
+    "Reputational Risk" : 0.2
+    "Industry Risk" : 0.6
+    "Geographic Risk" : 0.3
+    "Volume Risk" : 0.5
+```
+
+#### Risk Scoring Algorithm Flow
+
+```mermaid
+flowchart TD
+    A[Application Data] --> B[Credit Analysis]
+    A --> C[Fraud Detection]
+    A --> D[Industry Assessment]
+    A --> E[Geographic Analysis]
+    
+    B --> F[Credit Score: 0-100]
+    C --> G[Fraud Score: 0-100]
+    D --> H[Industry Score: 0-100]
+    E --> I[Geographic Score: 0-100]
+    
+    F --> J[Weighted Combination]
+    G --> J
+    H --> J
+    I --> J
+    
+    J --> K{Final Risk Score}
+    
+    K -->|0-30| L[LOW RISK<br/>Auto-Approve]
+    K -->|31-70| M[MEDIUM RISK<br/>Review Required]
+    K -->|71-100| N[HIGH RISK<br/>Manual Underwriting]
+    
+    style L fill:#c8e6c9
+    style M fill:#fff9c4
+    style N fill:#ffcdd2
+```
+
 ---
 
 ## Phase 7: Underwriting & Decision Making
@@ -375,6 +798,45 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - **Auto-Decline**: Prohibited businesses, sanctions matches, high-risk indicators
 - **Manual Review**: Medium to high-risk applications requiring human judgment
 - **Conditional Approval**: Approval with restrictions, limits, or additional requirements (optional)
+
+#### Decision Making Matrix
+
+```mermaid
+flowchart TD
+    A[All Assessments Complete] --> B{Risk Score}
+    
+    B -->|0-30| C[Low Risk Path]
+    B -->|31-70| D[Medium Risk Path]
+    B -->|71-100| E[High Risk Path]
+    
+    C --> F{Compliance Clear?}
+    D --> G{Manual Review}
+    E --> H{Senior Underwriter}
+    
+    F -->|Yes| I[AUTO-APPROVE]
+    F -->|No| J[DECLINE]
+    
+    G -->|Approve| K[APPROVE]
+    G -->|Decline| L[DECLINE]
+    G -->|Conditional| M[CONDITIONAL APPROVAL]
+    
+    H -->|Approve| N[APPROVE]
+    H -->|Decline| O[DECLINE]
+    H -->|Escalate| P[COMMITTEE REVIEW]
+    
+    I --> Q[Account Setup]
+    K --> Q
+    M --> R[Enhanced Monitoring]
+    N --> Q
+    
+    style I fill:#c8e6c9
+    style K fill:#c8e6c9
+    style N fill:#c8e6c9
+    style M fill:#fff9c4
+    style J fill:#ffcdd2
+    style L fill:#ffcdd2
+    style O fill:#ffcdd2
+```
 
 ---
 
@@ -419,6 +881,53 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - **Data Discrepancies**: Cross-reference validation and auto-correction
 - **Integration Failures**: Automated retry and alternative data sources
 
+#### Exception Handling Workflow
+
+```mermaid
+flowchart TD
+    A[Exception Detected] --> B{Exception Type}
+    
+    B -->|Document Quality| C[Image Enhancement]
+    B -->|Missing Data| D[Auto-Request Info]
+    B -->|Data Mismatch| E[Cross-Validation]
+    B -->|API Failure| F[Retry Logic]
+    B -->|Complex Issue| G[Manual Queue]
+    
+    C --> H{Enhancement Success?}
+    D --> I{Info Received?}
+    E --> J{Validation Success?}
+    F --> K{Retry Success?}
+    
+    H -->|Yes| L[Continue Processing]
+    H -->|No| M[Manual Review]
+    
+    I -->|Yes| L
+    I -->|No| N[Follow-up Required]
+    
+    J -->|Yes| L
+    J -->|No| O[Escalate to Specialist]
+    
+    K -->|Yes| L
+    K -->|No| P[Alternative Source]
+    
+    G --> Q[Specialist Assignment]
+    M --> Q
+    O --> Q
+    P --> R{Alternative Success?}
+    
+    R -->|Yes| L
+    R -->|No| Q
+    
+    L --> S[Resume Normal Flow]
+    N --> T[Merchant Communication]
+    Q --> U[Manual Resolution]
+    
+    style L fill:#c8e6c9
+    style S fill:#c8e6c9
+    style Q fill:#fff9c4
+    style U fill:#fff9c4
+```
+
 ---
 
 ## Phase 9: Account Setup & Provisioning
@@ -454,6 +963,33 @@ This document outlines a comprehensive merchant onboarding transformation strate
 - Settlement account verification
 - Integration testing procedures
 - Go-live readiness checklist
+
+#### Account Provisioning Timeline
+
+```mermaid
+gantt
+    title Account Setup and Provisioning
+    dateFormat  HH:mm
+    axisFormat %H:%M
+    
+    section Technical Setup
+    API Key Generation     :done, api, 00:00, 00:15
+    Gateway Configuration  :done, config, after api, 00:30
+    Security Setup        :done, security, after config, 00:20
+    
+    section Business Config
+    Risk Parameters       :done, risk, 00:00, 00:25
+    Pricing Setup         :done, pricing, after risk, 00:20
+    Limits Configuration  :done, limits, after pricing, 00:15
+    
+    section Validation
+    Integration Testing   :active, testing, 01:00, 00:45
+    Settlement Verification :settlement, after testing, 00:30
+    Go-Live Checklist    :checklist, after settlement, 00:15
+    
+    section Completion
+    Account Activation    :milestone, activation, after checklist, 00:00
+```
 
 ---
 
@@ -614,6 +1150,36 @@ This document outlines a comprehensive merchant onboarding transformation strate
 | **Automation Rate** | 20% | 60-70% | **70%** |
 | **Application Completion** | 60% | 80-85% | **85%** |
 | **Customer Satisfaction** | 6.2/10 | 8.0-9.0/10 | **8.5/10** |
+
+#### Performance Improvement Visualization
+
+```mermaid
+xychart-beta
+    title "Performance Improvement Over Time"
+    x-axis ["Current State", "Month 3", "Month 6", "Month 9", "Month 12"]
+    y-axis "Performance Score" 0 --> 100
+    line [20, 35, 50, 65, 70]
+```
+
+#### Cost-Benefit Analysis
+
+```mermaid
+quadrantChart
+    title Cost vs Benefit Analysis
+    x-axis Low Cost --> High Cost
+    y-axis Low Benefit --> High Benefit
+    quadrant-1 High Value Initiatives
+    quadrant-2 Strategic Investments
+    quadrant-3 Quick Wins
+    quadrant-4 Avoid/Minimize
+    
+    Document AI: [0.3, 0.8]
+    Risk Models: [0.6, 0.9]
+    API Integration: [0.4, 0.7]
+    Legacy Modernization: [0.8, 0.6]
+    Staff Training: [0.2, 0.5]
+    Compliance Automation: [0.5, 0.8]
+```
 
 ### Economic Model & ROI Projections
 
