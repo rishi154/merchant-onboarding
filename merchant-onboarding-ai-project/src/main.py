@@ -29,8 +29,8 @@ logging.basicConfig(
 async def process_merchant_application(application_data: dict, documents: list = None, progress_callback=None):
     """Main entry point for processing merchant applications with multi-workflow routing"""
     
-    # Initialize state
-    app_id = f"APP_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    # Initialize state - use existing app_id from application_data
+    app_id = application_data.get('application_id') or f"APP_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     print(f"\n[START] Starting merchant onboarding for {app_id}")
     print(f"[INFO] Business: {application_data.get('business_name', 'Unknown')}")
     
@@ -61,11 +61,43 @@ async def process_merchant_application(application_data: dict, documents: list =
         
         # Step 3: Execute selected workflow
         print(f"\n[WORKFLOW] Executing {workflow_pattern}...")
-        # Store progress callback in a way the state can access it
+        # Store enhanced progress callback that saves to database
         if progress_callback:
-            # Store callback in a global or pass it differently
             import builtins
-            builtins.current_progress_callback = progress_callback
+            
+            def enhanced_progress_callback(agent_name, status, result):
+                print(f"[{app_id}] *** ENHANCED PROGRESS CALLBACK ***", flush=True)
+                print(f"[{app_id}] Agent {agent_name}: {status}", flush=True)
+                
+                # Call original callback
+                progress_callback(agent_name, status, result)
+                
+                # Save to database immediately
+                if status in ['completed', 'review_required'] and result:
+                    try:
+                        from models import MerchantApplication, SessionLocal
+                        from datetime import datetime
+                        
+                        session = SessionLocal()
+                        application = session.query(MerchantApplication).filter_by(id=app_id).first()
+                        if application:
+                            current_results = application.agent_results or {}
+                            current_results[agent_name] = result
+                            application.agent_results = current_results
+                            application.current_agent = agent_name
+                            application.updated_at = datetime.now()
+                            
+                            if status == 'review_required':
+                                application.needs_review = 'true'
+                                application.review_agent = agent_name
+                            
+                            session.commit()
+                            print(f"[{app_id}] Saved {agent_name} result to database")
+                        session.close()
+                    except Exception as e:
+                        print(f"[{app_id}] DB save error: {e}")
+            
+            builtins.current_progress_callback = enhanced_progress_callback
         try:
             result = await workflow.ainvoke(state)
             print(f"[DEBUG] Workflow result type: {type(result)}")

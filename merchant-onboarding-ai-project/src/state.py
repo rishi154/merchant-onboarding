@@ -12,6 +12,9 @@ class ApplicationStatus(Enum):
     APPROVED = "approved"
     DECLINED = "declined"
     EXCEPTION = "exception"
+    PENDING_HUMAN_REVIEW = "pending_human_review"
+    HUMAN_APPROVED = "human_approved"
+    HUMAN_REJECTED = "human_rejected"
 
 class MerchantOnboardingState(BaseModel):
     # Application Info
@@ -56,3 +59,10 @@ class MerchantOnboardingState(BaseModel):
     workflow_start_time: Optional[str] = None
     agents_executed: List[str] = []
     routing_decision: Optional[str] = None
+    
+    # Human review tracking
+    needs_review: bool = False
+    review_agent: Optional[str] = None
+    review_data: Optional[Dict] = None
+    current_reviewer: Optional[str] = None
+    review_history: List[Dict] = []

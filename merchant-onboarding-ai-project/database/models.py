@@ -30,6 +30,13 @@ class MerchantApplication(Base):
     extraction_confidence = Column(Float)
     documents_processed = Column(Integer)
     manual_fields_required = Column(Integer)
+    
+    # Human review fields
+    needs_review = Column(String(10), default='false')
+    review_agent = Column(String(100))
+    review_data = Column(JSON)
+    current_reviewer = Column(String(100))
+    workflow_pattern = Column(String(50))
 
 class ProcessingStep(Base):
     __tablename__ = 'processing_steps'
@@ -44,6 +51,21 @@ class ProcessingStep(Base):
     error_message = Column(Text)  # User-friendly error message
     error_details = Column(Text)  # Full traceback and technical details
     console_logs = Column(Text)   # Step-by-step processing logs
+
+class ReviewQueue(Base):
+    __tablename__ = 'review_queue'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    application_id = Column(String, index=True)
+    agent_name = Column(String(100))
+    agent_result = Column(JSON)
+    status = Column(String(50))  # pending, in_progress, completed
+    assigned_reviewer = Column(String(100))
+    reviewer_notes = Column(Text)
+    decision = Column(String(50))  # approved, rejected, changes_requested
+    created_at = Column(DateTime, default=datetime.utcnow)
+    assigned_at = Column(DateTime)
+    completed_at = Column(DateTime)
 
 # Database setup
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///merchant_onboarding.db")

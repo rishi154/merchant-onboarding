@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merchant Onboarding - Processing with Human Review</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link rel="stylesheet" href="review-panel.css">
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Header -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">AI-Powered Merchant Onboarding</h1>
+                <p class="text-gray-600">Processing with Human Review Checkpoints</p>
+            </div>
+
+            <!-- Application Info -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Application ID</label>
+                        <p class="text-lg font-mono" id="application-id">Loading...</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Business Name</label>
+                        <p class="text-lg" id="business-name">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6 progress-section">
+                <h2 class="text-xl font-semibold mb-4">Processing Progress</h2>
+                
+                <!-- Progress Bar -->
+                <div class="mb-4">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span>Progress</span>
+                        <span id="progress-percentage">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-blue-600 h-3 rounded-full transition-all duration-500" 
+                             id="progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Current Status -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Current Agent</label>
+                        <p class="text-lg font-semibold" id="current-agent">Initializing...</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Status</label>
+                        <p class="text-lg status-text" id="status">Starting...</p>
+                    </div>
+                </div>
+
+                <!-- Workflow Info -->
+                <div class="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h3 class="font-semibold mb-2">Workflow Information</h3>
+                    <div class="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-600">Pattern:</span>
+                            <span id="workflow-pattern" class="font-medium">Loading...</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Expected Time:</span>
+                            <span id="estimated-time" class="font-medium">Loading...</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Human Reviews:</span>
+                            <span id="expected-reviews" class="font-medium">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Human Review Panel -->
+            <div id="review-panel" class="bg-yellow-100 border-2 border-yellow-400 rounded-lg p-6 mb-6" style="display: none;">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-yellow-800">👤 Human Review Required</h2>
+                    <span id="review-agent-name" class="bg-yellow-400 text-yellow-900 px-3 py-1 rounded font-bold"></span>
+                </div>
+                
+                <div id="agent-result-summary" class="bg-gray-50 border rounded p-4 mb-4">
+                    <!-- Agent result details -->
+                </div>
+                
+                <div class="flex gap-3 mb-4">
+                    <button id="approve-btn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        ✅ Approve & Continue
+                    </button>
+                    <button id="reject-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                        ❌ Reject & Stop
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">Review Notes:</label>
+                    <textarea id="reviewer-notes" class="w-full p-2 border rounded" rows="3" placeholder="Add your review comments..."></textarea>
+                </div>
+            </div>
+
+            <!-- Pipeline Flow Visualization -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">Workflow Pipeline</h2>
+                <div id="pipeline-flow" class="overflow-x-auto">
+                    <div class="flex items-center space-x-2 min-w-max pb-4">
+                        <!-- Pipeline stages will be added here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Results History -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">Agent Execution History</h2>
+                <div id="agent-history" class="space-y-3">
+                    <p class="text-gray-500">No agents executed yet...</p>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex space-x-4">
+                    <button onclick="window.location.href='/applications'" 
+                            class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600">
+                        Back to Applications
+                    </button>
+                    <button id="resume-btn" onclick="resumeApplication()" 
+                            class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 hidden">
+                        Resume Processing
+                    </button>
+
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="review-panel.js"></script>
+    <script>
+        // Initialize WebSocket connection
+        const socket = io();
+        let reviewPanel = null;
+        let currentAppId = null;
+        let pipelineStages = [];
+        
+        // Define workflow stages based on pattern
+        const workflowStages = {
+            'express_workflow': ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'],
+            'standard_workflow': ['document_processing', 'data_validation', 'risk_assessment', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
+            'comprehensive_workflow': ['document_processing', 'market_qualification', 'lead_qualification', 'data_validation', 'risk_assessment', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
+        };
+
+        // Get application ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        currentAppId = urlParams.get('app_id');
+        console.log('Current app ID from URL:', currentAppId);
+        
+        // ALWAYS initialize pipeline on page load
+        console.log('*** FORCE INITIALIZING PIPELINE ON PAGE LOAD ***');
+        initializePipeline('comprehensive_workflow');
+
+        // Simple review panel functions
+        let selectedDecision = null;
+        
+        document.getElementById('approve-btn').addEventListener('click', () => {
+            selectedDecision = 'approved';
+            submitReviewDecision();
+        });
+        
+        document.getElementById('reject-btn').addEventListener('click', () => {
+            selectedDecision = 'rejected';
+            submitReviewDecision();
+        });
+        
+        if (currentAppId) {
+            console.log('Loading application data for:', currentAppId);
+            document.getElementById('application-id').textContent = currentAppId;
+            loadApplicationData();
+            // Always initialize pipeline for existing applications
+            initializePipeline('comprehensive_workflow');
+        } else {
+            console.log('No app_id in URL, checking for uploaded documents');
+            // No app_id in URL, check for uploaded documents and start processing
+            const uploadedDocs = sessionStorage.getItem('uploadedDocuments');
+            if (uploadedDocs) {
+                console.log('Found uploaded documents, starting processing');
+                startProcessing(JSON.parse(uploadedDocs));
+            } else {
+                console.log('No uploaded documents found, initializing default pipeline');
+                initializePipeline('comprehensive_workflow');
+            }
+        }
+
+        // WebSocket event handlers
+        socket.on('workflow_pattern_selected', (data) => {
+            document.getElementById('workflow-pattern').textContent = data.name;
+            document.getElementById('estimated-time').textContent = data.estimated_time;
+            
+            // Initialize pipeline based on workflow pattern
+            const patternMap = {
+                'Express Workflow': 'express_workflow',
+                'Standard Workflow': 'standard_workflow', 
+                'Comprehensive Workflow': 'comprehensive_workflow'
+            };
+            const workflowKey = patternMap[data.name] || 'comprehensive_workflow';
+            initializePipeline(workflowKey);
+        });
+
+        socket.on('agent_progress', (data) => {
+            console.log('*** RECEIVED AGENT_PROGRESS EVENT ***', data);
+            if (data.application_id === currentAppId) {
+                updateProgress(data);
+                addAgentToHistory(data);
+                
+                // Check if this is a review_required status
+                if (data.status === 'review_required') {
+                    console.log('Agent progress indicates review required');
+                    // Extract the agent result from the nested structure
+                    let agentResult = data.agent_results || {};
+                    if (agentResult[data.agent_name]) {
+                        agentResult = agentResult[data.agent_name];
+                    }
+                    showReviewPanel(data.agent_name, agentResult);
+                }
+            }
+        });
+
+        socket.on('review_required', (data) => {
+            console.log('*** RECEIVED REVIEW_REQUIRED EVENT ***', data);
+            console.log('Current app ID:', currentAppId);
+            console.log('Event app ID:', data.application_id);
+            
+            if (data.application_id === currentAppId) {
+                console.log('Review required for:', data.agent_name);
+                document.getElementById('status').textContent = '⏸️ PENDING HUMAN REVIEW';
+                document.getElementById('current-agent').textContent = data.agent_name;
+                
+                // Show review panel - extract agent result from review data
+                let reviewData = data.review_data || {};
+                if (reviewData.agent_result) {
+                    reviewData = reviewData.agent_result;
+                }
+                showReviewPanel(data.agent_name, reviewData);
+            } else {
+                console.log('App ID mismatch - ignoring event');
+            }
+        });
+
+        socket.on('workflow_resume', (data) => {
+            if (data.application_id === currentAppId) {
+                console.log('Workflow resumed');
+                document.getElementById('status').textContent = 'Processing...';
+                if (reviewPanel) {
+                    reviewPanel.hidePanel();
+                }
+            }
+        });
+
+        function initializePipeline(workflowPattern = 'comprehensive_workflow') {
+            console.log('*** INITIALIZING JENKINS PIPELINE ***');
+            console.log('Workflow pattern:', workflowPattern);
+            const stages = workflowStages[workflowPattern] || workflowStages['comprehensive_workflow'];
+            console.log('Pipeline stages:', stages);
+            const pipelineContainer = document.querySelector('#pipeline-flow .flex');
+            console.log('Pipeline container found:', !!pipelineContainer);
+            if (!pipelineContainer) {
+                console.error('Pipeline container not found!');
+                return;
+            }
+            pipelineContainer.innerHTML = '';
+            console.log('Cleared pipeline container');
+            
+            stages.forEach((stage, index) => {
+                const stageDiv = document.createElement('div');
+                stageDiv.className = 'flex items-center';
+                stageDiv.innerHTML = `
+                    <div id="stage-${stage}" class="pipeline-stage pending" data-stage="${stage}">
+                        <div class="stage-circle">
+                            <span class="stage-number">${index + 1}</span>
+                        </div>
+                        <div class="stage-label">${stage.replace(/_/g, ' ').toUpperCase()}</div>
+                        <div class="stage-status">⏳ Pending</div>
+                    </div>
+                    ${index < stages.length - 1 ? '<div class="pipeline-arrow">→</div>' : ''}
+                `;
+                pipelineContainer.appendChild(stageDiv);
+                console.log(`Added stage: ${stage}`);
+            });
+            
+            console.log('*** JENKINS PIPELINE INITIALIZED ***');
+            console.log('Total stages added:', stages.length);
+            
+            // Add CSS for pipeline styling
+            if (!document.getElementById('pipeline-styles')) {
+                console.log('Adding pipeline CSS styles');
+                const style = document.createElement('style');
+                style.id = 'pipeline-styles';
+                style.textContent = `
+                    .pipeline-stage {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        padding: 6px;
+                        min-width: 90px;
+                        text-align: center;
+                    }
+                    .stage-circle {
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: bold;
+                        font-size: 0.85rem;
+                        margin-bottom: 6px;
+                        transition: all 0.3s;
+                    }
+                    .pipeline-stage.pending .stage-circle {
+                        background: #e5e7eb;
+                        color: #6b7280;
+                        border: 2px solid #d1d5db;
+                    }
+                    .pipeline-stage.running .stage-circle {
+                        background: #fbbf24;
+                        color: white;
+                        border: 2px solid #f59e0b;
+                        animation: pulse 2s infinite;
+                    }
+                    .pipeline-stage.completed .stage-circle {
+                        background: #10b981;
+                        color: white;
+                        border: 2px solid #059669;
+                    }
+                    .pipeline-stage.review .stage-circle {
+                        background: #f97316;
+                        color: white;
+                        border: 2px solid #ea580c;
+                        animation: pulse 2s infinite;
+                    }
+                    .pipeline-stage.failed .stage-circle {
+                        background: #ef4444;
+                        color: white;
+                        border: 2px solid #dc2626;
+                    }
+                    .stage-label {
+                        font-size: 0.7rem;
+                        font-weight: 600;
+                        margin-bottom: 4px;
+                        color: #374151;
+                        line-height: 1.1;
+                    }
+                    .stage-status {
+                        font-size: 0.7rem;
+                        color: #6b7280;
+                    }
+                    .pipeline-arrow {
+                        font-size: 1.2rem;
+                        color: #9ca3af;
+                        margin: 0 6px;
+                        flex-shrink: 0;
+                    }
+                    @keyframes pulse {
+                        0%, 100% { opacity: 1; }
+                        50% { opacity: 0.5; }
+                    }
+                `;
+                document.head.appendChild(style);
+                console.log('Pipeline CSS styles added');
+            } else {
+                console.log('Pipeline CSS styles already exist');
+            }
+        }
+        
+        function updatePipelineStage(agentName, status) {
+            const stageElement = document.getElementById(`stage-${agentName}`);
+            if (!stageElement) return;
+            
+            // Remove all status classes
+            stageElement.classList.remove('pending', 'running', 'completed', 'review', 'failed');
+            
+            let statusText = '';
+            let statusClass = '';
+            
+            switch(status) {
+                case 'starting':
+                case 'processing':
+                    statusClass = 'running';
+                    statusText = '⚡ Running';
+                    break;
+                case 'completed':
+                    statusClass = 'completed';
+                    statusText = '✅ Completed';
+                    break;
+                case 'review_required':
+                    statusClass = 'review';
+                    statusText = '👤 Review';
+                    break;
+                case 'failed':
+                    statusClass = 'failed';
+                    statusText = '❌ Failed';
+                    break;
+                default:
+                    statusClass = 'pending';
+                    statusText = '⏳ Pending';
+            }
+            
+            stageElement.classList.add(statusClass);
+            stageElement.querySelector('.stage-status').textContent = statusText;
+        }
+        
+        function updateProgress(data) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-percentage');
+            
+            progressBar.style.width = data.progress_percentage + '%';
+            progressText.textContent = data.progress_percentage + '%';
+            
+            document.getElementById('current-agent').textContent = data.agent_name;
+            
+            // Update pipeline visualization
+            updatePipelineStage(data.agent_name, data.status);
+            
+            if (data.status === 'completed') {
+                document.getElementById('status').textContent = '✅ Agent Completed';
+            } else if (data.status === 'review_required') {
+                document.getElementById('status').textContent = '⏸️ PENDING HUMAN REVIEW';
+            } else {
+                document.getElementById('status').textContent = 'Processing...';
+            }
+        }
+
+        function addAgentToHistory(data) {
+            const historyContainer = document.getElementById('agent-history');
+            
+            // Remove "no agents" message
+            if (historyContainer.children.length === 1 && 
+                historyContainer.children[0].textContent.includes('No agents')) {
+                historyContainer.innerHTML = '';
+            }
+
+            // Create unique ID for this agent entry
+            const uniqueId = `${data.agent_name}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            // Check if this agent already has an entry and update it instead of adding new
+            const existingEntry = document.querySelector(`[data-agent="${data.agent_name}"]`);
+            if (existingEntry && data.status !== 'starting') {
+                // Update existing entry
+                updateAgentEntry(existingEntry, data);
+                return;
+            }
+
+            const agentDiv = document.createElement('div');
+            agentDiv.className = 'p-3 border rounded-lg';
+            agentDiv.setAttribute('data-agent', data.agent_name);
+            
+            let statusIcon = '⏳';
+            let statusClass = 'text-yellow-600';
+            
+            if (data.status === 'completed') {
+                statusIcon = '✅';
+                statusClass = 'text-green-600';
+            } else if (data.status === 'review_required') {
+                statusIcon = '⏸️';
+                statusClass = 'text-orange-600';
+            } else if (data.status === 'failed') {
+                statusIcon = '❌';
+                statusClass = 'text-red-600';
+            }
+
+            // Create expandable agent result display
+            const hasResults = data.agent_results && Object.keys(data.agent_results).length > 0;
+            
+            agentDiv.innerHTML = `
+                <div class="flex justify-between items-center cursor-pointer" onclick="toggleAgentDetails('${uniqueId}')">
+                    <div>
+                        <span class="font-semibold">${data.agent_name.replace(/_/g, ' ').toUpperCase()}</span>
+                        <span class="${statusClass} ml-2">${statusIcon} ${data.status}</span>
+                        ${hasResults ? '<span class="text-blue-500 ml-2 text-sm">📋 View Results</span>' : ''}
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        ${new Date().toLocaleTimeString()}
+                        <span class="ml-2">▼</span>
+                    </div>
+                </div>
+                <div id="details-${uniqueId}" class="mt-3 p-3 bg-gray-50 rounded hidden">
+                    ${hasResults ? formatAgentResult(data.agent_name, data.agent_results[data.agent_name] || data.agent_results) : '<p class="text-gray-500">No detailed results available</p>'}
+                </div>
+            `;
+
+            historyContainer.appendChild(agentDiv);
+        }
+        
+        function updateAgentEntry(agentDiv, data) {
+            // Update the status and results of existing entry
+            let statusIcon = '⏳';
+            let statusClass = 'text-yellow-600';
+            
+            if (data.status === 'completed') {
+                statusIcon = '✅';
+                statusClass = 'text-green-600';
+            } else if (data.status === 'review_required') {
+                statusIcon = '⏸️';
+                statusClass = 'text-orange-600';
+            } else if (data.status === 'failed') {
+                statusIcon = '❌';
+                statusClass = 'text-red-600';
+            }
+            
+            const hasResults = data.agent_results && Object.keys(data.agent_results).length > 0;
+            const statusSpan = agentDiv.querySelector('.text-yellow-600, .text-green-600, .text-orange-600, .text-red-600');
+            if (statusSpan) {
+                statusSpan.className = statusClass + ' ml-2';
+                statusSpan.textContent = `${statusIcon} ${data.status}`;
+            }
+            
+            // Update results if available
+            const detailsDiv = agentDiv.querySelector('[id^="details-"]');
+            if (detailsDiv && hasResults) {
+                detailsDiv.innerHTML = formatAgentResult(data.agent_name, data.agent_results[data.agent_name] || data.agent_results);
+            }
+        }
+
+        async function loadApplicationData() {
+            try {
+                const response = await fetch(`/api/applications`);
+                const applications = await response.json();
+                const app = applications.find(a => a.application_id === currentAppId || a.id === currentAppId);
+                
+                if (!app) {
+                    console.error('Application not found:', currentAppId);
+                    return;
+                }
+                
+                console.log('Loaded application data:', app);
+                
+                // Update basic info
+                document.getElementById('business-name').textContent = app.business_name || 'Unknown Business';
+                document.getElementById('current-agent').textContent = app.current_agent || 'N/A';
+                document.getElementById('status').textContent = app.status || 'Unknown';
+                
+                // Update progress
+                const progressBar = document.getElementById('progress-bar');
+                const progressText = document.getElementById('progress-percentage');
+                if (progressBar && progressText) {
+                    progressBar.style.width = (app.progress_percentage || 0) + '%';
+                    progressText.textContent = (app.progress_percentage || 0) + '%';
+                }
+                
+                // Load agent history from agent_results
+                if (app.agent_results && Object.keys(app.agent_results).length > 0) {
+                    console.log('Loading agent history from results:', app.agent_results);
+                    
+                    // Clear existing history first
+                    const historyContainer = document.getElementById('agent-history');
+                    historyContainer.innerHTML = '';
+                    
+                    Object.keys(app.agent_results).forEach(agentName => {
+                        const agentResult = app.agent_results[agentName];
+                        console.log(`Adding ${agentName} to history:`, agentResult);
+                        
+                        // Update pipeline stage to completed
+                        updatePipelineStage(agentName, 'completed');
+                        
+                        // Add to history with proper structure
+                        addAgentToHistory({
+                            agent_name: agentName,
+                            status: 'completed',
+                            agent_results: app.agent_results,
+                            application_id: currentAppId
+                        });
+                    });
+                } else {
+                    console.log('No agent results found in application data');
+                }
+                
+                // Check if needs review
+                if (app.needs_review === 'true' || app.needs_review === true) {
+                    console.log('Application needs review for agent:', app.review_agent);
+                    document.getElementById('status').textContent = '⏸️ PENDING HUMAN REVIEW';
+                    document.getElementById('current-agent').textContent = app.review_agent || 'Unknown Agent';
+                    
+                    // Update pipeline stage to review
+                    if (app.review_agent) {
+                        updatePipelineStage(app.review_agent, 'review');
+                    }
+                    
+                    // Show review panel if review data exists
+                    if (app.review_data) {
+                        showReviewPanel(app.review_agent, app.review_data);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error loading application data:', error);
+            }
+        }
+
+        async function resumeApplication() {
+            try {
+                const response = await fetch(`/api/applications/${currentAppId}/resume`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.needs_review) {
+                        // Application needs review, show review panel
+                        loadApplicationData();
+                    } else {
+                        // Resume processing
+                        document.getElementById('status').textContent = 'Processing...';
+                        alert('Application resumed successfully');
+                    }
+                } else {
+                    alert('Error resuming application: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error resuming application:', error);
+                alert('Error resuming application');
+            }
+        }
+
+        // Show resume button for paused applications
+        if (currentAppId) {
+            document.getElementById('resume-btn').classList.remove('hidden');
+        }
+        
+        function showReviewPanel(agentName, reviewData) {
+            console.log('Showing review panel for:', agentName);
+            document.getElementById('review-agent-name').textContent = agentName;
+            
+            // Format review data in human-readable way
+            let summary = formatAgentResult(agentName, reviewData);
+            document.getElementById('agent-result-summary').innerHTML = summary;
+            document.getElementById('review-panel').style.display = 'block';
+        }
+        
+        function toggleAgentDetails(agentName) {
+            const detailsDiv = document.getElementById(`details-${agentName}`);
+            if (detailsDiv) {
+                detailsDiv.classList.toggle('hidden');
+            }
+        }
+        
+        function formatAgentResult(agentName, data) {
+            let html = '<div class="space-y-3">';
+            
+            // Agent-specific formatting
+            if (agentName === 'document_processing') {
+                html += '<h4 class="font-semibold text-gray-800">📄 Document Processing Results</h4>';
+                
+                // Extract nested agent_result if present
+                const result = data.agent_result || data;
+                
+                if (result.document_processing_complete) {
+                    html += `<p class="text-green-600">✅ <strong>Processing Status:</strong> Successfully completed</p>`;
+                }
+                if (result.documents_processed) {
+                    html += `<p><strong>Documents Processed:</strong> ${result.documents_processed} documents</p>`;
+                }
+                if (result.overall_confidence) {
+                    const confidence = Math.round(result.overall_confidence * 100);
+                    const confidenceColor = confidence >= 80 ? 'text-green-600' : confidence >= 60 ? 'text-yellow-600' : 'text-red-600';
+                    html += `<p class="${confidenceColor}"><strong>Confidence Level:</strong> ${confidence}% (${confidence >= 80 ? 'High' : confidence >= 60 ? 'Medium' : 'Low'})</p>`;
+                }
+                if (result.fraud_risk) {
+                    const riskColor = result.fraud_risk === 'low' ? 'text-green-600' : result.fraud_risk === 'medium' ? 'text-yellow-600' : 'text-red-600';
+                    html += `<p class="${riskColor}"><strong>Fraud Risk:</strong> ${result.fraud_risk.toUpperCase()}</p>`;
+                }
+                if (result.tools_used && result.tools_used.length > 0) {
+                    html += `<p><strong>Tools Used:</strong> ${result.tools_used.map(tool => tool.replace('_', ' ')).join(', ')}</p>`;
+                }
+                if (result.processing_time) {
+                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+                }
+                if (result.requires_manual_review !== undefined) {
+                    const reviewStatus = result.requires_manual_review ? 'Required' : 'Not Required';
+                    const reviewColor = result.requires_manual_review ? 'text-orange-600' : 'text-green-600';
+                    html += `<p class="${reviewColor}"><strong>Manual Review:</strong> ${reviewStatus}</p>`;
+                }
+                if (result.agent_reasoning) {
+                    html += `<p><strong>Agent Notes:</strong> ${result.agent_reasoning}</p>`;
+                }
+            } else if (agentName === 'risk_assessment') {
+                html += '<h4 class="font-semibold text-gray-800">⚠️ Risk Assessment Results</h4>';
+                
+                const result = data.agent_result || data;
+                
+                if (result.risk_score) {
+                    const riskColor = result.risk_score < 30 ? 'text-green-600' : result.risk_score < 70 ? 'text-yellow-600' : 'text-red-600';
+                    html += `<p class="${riskColor}"><strong>Risk Score:</strong> ${result.risk_score}/100</p>`;
+                }
+                if (result.risk_category) {
+                    const categoryColor = result.risk_category.toLowerCase() === 'low' ? 'text-green-600' : result.risk_category.toLowerCase() === 'medium' ? 'text-yellow-600' : 'text-red-600';
+                    html += `<p class="${categoryColor}"><strong>Risk Level:</strong> ${result.risk_category.toUpperCase()}</p>`;
+                }
+                if (result.credit_score) {
+                    html += `<p><strong>Credit Score:</strong> ${result.credit_score}</p>`;
+                }
+                if (result.factors && result.factors.length > 0) {
+                    html += `<p><strong>Risk Factors:</strong> ${result.factors.length} identified</p>`;
+                    html += `<ul class="ml-4 list-disc">${result.factors.map(factor => `<li>${factor}</li>`).join('')}</ul>`;
+                }
+            } else if (agentName === 'lead_qualification') {
+                html += '<h4 class="font-semibold text-gray-800">🎯 Lead Qualification Results</h4>';
+                
+                const result = data.agent_result || data;
+                
+                if (result.qualified !== undefined) {
+                    const qualifiedColor = result.qualified ? 'text-green-600' : 'text-red-600';
+                    html += `<p class="${qualifiedColor}"><strong>Lead Status:</strong> ${result.qualified ? '✅ Qualified' : '❌ Not Qualified'}</p>`;
+                }
+                
+                // Show reasoning immediately after status for context
+                if (result.reasoning) {
+                    html += `<p class="mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400"><strong>Why:</strong> ${result.reasoning}</p>`;
+                }
+                
+                if (result.lead_score !== undefined) {
+                    const scoreColor = result.lead_score >= 80 ? 'text-green-600' : result.lead_score >= 60 ? 'text-yellow-600' : 'text-red-600';
+                    html += `<p class="${scoreColor}"><strong>Lead Score:</strong> ${result.lead_score}/100</p>`;
+                }
+                
+                // Show failed criteria for not qualified leads
+                if (!result.qualified && result.failed_criteria && result.failed_criteria.length > 0) {
+                    html += `<p class="text-red-600"><strong>Failed Criteria:</strong> ${result.failed_criteria.length} issues</p>`;
+                    html += `<ul class="ml-4 list-disc text-red-600">${result.failed_criteria.map(criteria => `<li>${criteria}</li>`).join('')}</ul>`;
+                }
+                
+                if (result.qualification_criteria && result.qualification_criteria.length > 0) {
+                    html += `<p class="text-green-600"><strong>Criteria Met:</strong> ${result.qualification_criteria.length} items</p>`;
+                    html += `<ul class="ml-4 list-disc text-green-600">${result.qualification_criteria.map(criteria => `<li>${criteria}</li>`).join('')}</ul>`;
+                }
+                
+                if (result.recommendation) {
+                    html += `<p><strong>Recommendation:</strong> ${result.recommendation}</p>`;
+                }
+                
+                // Show any additional context
+                if (result.business_type) {
+                    html += `<p><strong>Business Type:</strong> ${result.business_type}</p>`;
+                }
+                if (result.industry) {
+                    html += `<p><strong>Industry:</strong> ${result.industry}</p>`;
+                }
+                if (result.processing_time) {
+                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+                }
+            } else if (agentName === 'market_qualification') {
+                html += '<h4 class="font-semibold text-gray-800">🏪 Market Qualification Results</h4>';
+                
+                const result = data.agent_result || data;
+                
+                if (result.qualified !== undefined) {
+                    const qualifiedColor = result.qualified ? 'text-green-600' : 'text-red-600';
+                    html += `<p class="${qualifiedColor}"><strong>Market Status:</strong> ${result.qualified ? '✅ Qualified' : '❌ Not Qualified'}</p>`;
+                }
+                
+                // Show reasoning immediately for context
+                if (result.reasoning) {
+                    html += `<p class="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400"><strong>Why:</strong> ${result.reasoning}</p>`;
+                }
+                
+                if (result.market_score !== undefined) {
+                    html += `<p><strong>Market Score:</strong> ${result.market_score}/100</p>`;
+                }
+                if (result.target_market) {
+                    html += `<p><strong>Target Market:</strong> ${result.target_market}</p>`;
+                }
+                if (result.processing_time) {
+                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+                }
+            } else if (agentName === 'data_validation') {
+                html += '<h4 class="font-semibold text-gray-800">✅ Data Validation Results</h4>';
+                
+                const result = data.agent_result || data;
+                
+                if (result.validation_status) {
+                    const statusColor = result.validation_status === 'VALID' ? 'text-green-600' : 'text-red-600';
+                    html += `<p class="${statusColor}"><strong>Validation Status:</strong> ${result.validation_status}</p>`;
+                }
+                if (result.errors && result.errors.length > 0) {
+                    html += `<p class="text-red-600"><strong>Validation Errors:</strong> ${result.errors.length} found</p>`;
+                    html += `<ul class="ml-4 list-disc text-red-600">${result.errors.map(error => `<li>${error}</li>`).join('')}</ul>`;
+                }
+                if (result.missing_fields && result.missing_fields.length > 0) {
+                    html += `<p class="text-orange-600"><strong>Missing Fields:</strong> ${result.missing_fields.join(', ')}</p>`;
+                }
+                if (result.reasoning) {
+                    html += `<p class="mt-2 p-2 bg-gray-50 border-l-4 border-gray-400"><strong>Why:</strong> ${result.reasoning}</p>`;
+                }
+                if (result.processing_time) {
+                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+                }
+            } else if (agentName === 'decision_making') {
+                html += '<h4 class="font-semibold text-gray-800">⚖️ Decision Making Results</h4>';
+                
+                const result = data.agent_result || data;
+                
+                if (result.decision) {
+                    const decisionColor = result.decision === 'APPROVED' ? 'text-green-600' : result.decision === 'DECLINED' ? 'text-red-600' : 'text-yellow-600';
+                    html += `<p class="${decisionColor}"><strong>Final Decision:</strong> ${result.decision}</p>`;
+                }
+                if (result.confidence !== undefined) {
+                    const confidence = typeof result.confidence === 'number' ? Math.round(result.confidence * 100) : result.confidence;
+                    html += `<p><strong>Decision Confidence:</strong> ${confidence}%</p>`;
+                }
+                if (result.reasoning) {
+                    html += `<p><strong>Decision Reasoning:</strong> ${result.reasoning}</p>`;
+                }
+                if (result.conditions && result.conditions.length > 0) {
+                    html += `<p><strong>Conditions:</strong> ${result.conditions.length} required</p>`;
+                    html += `<ul class="ml-4 list-disc">${result.conditions.map(condition => `<li>${condition}</li>`).join('')}</ul>`;
+                }
+                if (result.processing_time) {
+                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+                }
+            } else if (agentName === 'compliance_verification') {
+                html += '<h4 class="font-semibold text-gray-800">✅ Compliance Verification Results</h4>';
+                
+                const result = data.agent_result || data;
+                
+                if (result.compliance_status) {
+                    const statusColor = result.compliance_status === 'COMPLIANT' ? 'text-green-600' : result.compliance_status === 'NON_COMPLIANT' ? 'text-red-600' : 'text-yellow-600';
+                    html += `<p class="${statusColor}"><strong>Compliance Status:</strong> ${result.compliance_status}</p>`;
+                }
+                if (result.checks_passed !== undefined && result.total_checks !== undefined) {
+                    html += `<p><strong>Checks Passed:</strong> ${result.checks_passed}/${result.total_checks}</p>`;
+                }
+                if (result.violations && result.violations.length > 0) {
+                    html += `<p class="text-red-600"><strong>Violations Found:</strong> ${result.violations.length}</p>`;
+                    html += `<ul class="ml-4 list-disc">${result.violations.map(violation => `<li>${violation}</li>`).join('')}</ul>`;
+                }
+                if (result.processing_time) {
+                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+                }
+            } else if (agentName === 'communication') {
+                html += '<h4 class="font-semibold text-gray-800">📧 Communication Results</h4>';
+                
+                const result = data.agent_result || data;
+                
+                if (result.communication_strategy) {
+                    const strategy = result.communication_strategy;
+                    html += `<p><strong>Message Type:</strong> ${strategy.message_type || 'Standard'}</p>`;
+                    html += `<p><strong>Channel:</strong> ${strategy.channel || 'Email'}</p>`;
+                }
+                if (result.message_sent !== undefined) {
+                    const sentColor = result.message_sent ? 'text-green-600' : 'text-red-600';
+                    html += `<p class="${sentColor}"><strong>Message Status:</strong> ${result.message_sent ? '✅ Sent' : '❌ Failed'}</p>`;
+                }
+                if (result.reasoning) {
+                    html += `<p class="mt-2 p-2 bg-gray-50 border-l-4 border-gray-400"><strong>Why:</strong> ${result.reasoning}</p>`;
+                }
+                if (result.processing_time) {
+                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+                }
+            } else {
+                const agentTitle = agentName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                html += `<h4 class="font-semibold text-gray-800">🔧 ${agentTitle} Results</h4>`;
+                
+                const result = data.agent_result || data;
+                
+                // Generic formatting for other agents
+                if (result.status) {
+                    const statusColor = result.status === 'completed' ? 'text-green-600' : result.status === 'failed' ? 'text-red-600' : 'text-yellow-600';
+                    html += `<p class="${statusColor}"><strong>Status:</strong> ${result.status.toUpperCase()}</p>`;
+                }
+                if (result.confidence !== undefined) {
+                    const confidence = typeof result.confidence === 'number' ? Math.round(result.confidence * 100) : result.confidence;
+                    html += `<p><strong>Confidence:</strong> ${confidence}%</p>`;
+                }
+                if (result.recommendation) {
+                    html += `<p><strong>Recommendation:</strong> ${result.recommendation}</p>`;
+                }
+                if (result.decision) {
+                    const decisionColor = result.decision === 'APPROVED' ? 'text-green-600' : result.decision === 'DECLINED' ? 'text-red-600' : 'text-yellow-600';
+                    html += `<p class="${decisionColor}"><strong>Decision:</strong> ${result.decision}</p>`;
+                }
+                if (result.reasoning && !html.includes('Why:')) {
+                    html += `<p class="mt-2 p-2 bg-gray-50 border-l-4 border-gray-400"><strong>Why:</strong> ${result.reasoning}</p>`;
+                }
+                if (result.processing_time) {
+                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+                }
+            }
+            
+            // Show raw data in collapsible section
+            html += `
+                <details class="mt-4">
+                    <summary class="cursor-pointer text-blue-600 hover:text-blue-800">View Raw Data</summary>
+                    <pre class="mt-2 p-3 bg-gray-100 rounded text-xs overflow-auto">${JSON.stringify(data, null, 2)}</pre>
+                </details>
+            `;
+            
+            html += '</div>';
+            return html;
+        }
+        
+        function hideReviewPanel() {
+            document.getElementById('review-panel').style.display = 'none';
+        }
+        
+        async function submitReviewDecision() {
+            console.log('Submitting decision:', selectedDecision);
+            const notes = document.getElementById('reviewer-notes').value;
+            
+            if (!currentAppId) {
+                console.log('No app ID, just hiding panel for test');
+                hideReviewPanel();
+                document.getElementById('status').textContent = selectedDecision === 'approved' ? 'Processing...' : 'Declined';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/applications/${currentAppId}/review-decision`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        decision: selectedDecision,
+                        notes: notes,
+                        reviewer: 'current_user'
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('Review decision result:', result);
+                
+                if (result.success) {
+                    hideReviewPanel();
+                    document.getElementById('status').textContent = selectedDecision === 'approved' ? 'Processing...' : 'Declined';
+                    
+                    // Update the agent status in history and pipeline
+                    const currentAgent = document.getElementById('current-agent').textContent;
+                    if (selectedDecision === 'approved') {
+                        // Update pipeline stage to completed
+                        updatePipelineStage(currentAgent, 'completed');
+                        
+                        // Update agent history entry
+                        const agentEntry = document.querySelector(`[data-agent="${currentAgent}"]`);
+                        if (agentEntry) {
+                            const statusSpan = agentEntry.querySelector('.text-orange-600');
+                            if (statusSpan) {
+                                statusSpan.className = 'text-green-600 ml-2';
+                                statusSpan.textContent = '✅ completed';
+                            }
+                        }
+                        
+                        socket.emit('workflow_resume', { application_id: currentAppId });
+                    } else if (selectedDecision === 'rejected') {
+                        // Update pipeline stage to failed
+                        updatePipelineStage(currentAgent, 'failed');
+                        
+                        // Update agent history entry
+                        const agentEntry = document.querySelector(`[data-agent="${currentAgent}"]`);
+                        if (agentEntry) {
+                            const statusSpan = agentEntry.querySelector('.text-orange-600');
+                            if (statusSpan) {
+                                statusSpan.className = 'text-red-600 ml-2';
+                                statusSpan.textContent = '❌ rejected';
+                            }
+                        }
+                    }
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error submitting decision:', error);
+                alert('Error submitting decision');
+            }
+        }
+        
+
+
+        async function startProcessing(documents) {
+            console.log('Starting processing with documents:', documents);
+            
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        business_name: 'Processing...', // Will be extracted from documents
+                        documents: documents
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('Processing started:', result);
+                
+                if (result.application_id) {
+                    currentAppId = result.application_id;
+                    document.getElementById('application-id').textContent = currentAppId;
+                    document.getElementById('business-name').textContent = result.business_name || 'Processing...';
+                    
+                    // Update workflow info
+                    if (result.workflow_pattern) {
+                        document.getElementById('workflow-pattern').textContent = result.workflow_pattern.name;
+                        document.getElementById('estimated-time').textContent = result.workflow_pattern.estimated_time;
+                        document.getElementById('expected-reviews').textContent = result.expected_reviews;
+                    }
+                    
+                    // Clear session storage
+                    sessionStorage.removeItem('uploadedDocuments');
+                }
+            } catch (error) {
+                console.error('Error starting processing:', error);
+                alert('Error starting processing. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>
