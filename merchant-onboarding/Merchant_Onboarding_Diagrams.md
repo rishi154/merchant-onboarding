@@ -1,96 +1,69 @@
 # Merchant Onboarding Process Diagrams
+## Updated to Match AI Agent Implementation
 
-## Overview Flowchart
+## AI-Powered Multi-Workflow Overview
 
 ```mermaid
 flowchart TD
-    A[Merchant Interest] --> B[Lead Qualification]
-    B --> C{Qualified?}
-    C -->|Yes| D[Application Initiation]
-    C -->|No| E[Lead Nurturing]
+    A[Merchant Application] --> B[Document Upload]
+    B --> C[AI Document Analysis]
+    C --> D{Workflow Routing}
     
-    D --> F[Dynamic Data Collection]
-    F --> G[Document Upload & Processing]
-    G --> H[Identity Verification & KYC/AML]
-    H --> I[Data Validation & Enrichment]
-    I --> J[Risk Assessment & Scoring]
-    J --> K[Underwriting & Decision]
+    D -->|Low Risk<br/>50% of merchants| E[Express Workflow<br/>4 AI Agents<br/>2-4 hours]
+    D -->|Medium Risk<br/>30% of merchants| F[Standard Workflow<br/>7 AI Agents<br/>1-2 days]
+    D -->|High Risk<br/>20% of merchants| G[Comprehensive Workflow<br/>13 AI Agents<br/>2-5 days]
     
-    K --> L{Decision}
-    L -->|Approve| M[Account Setup & Provisioning]
-    L -->|Decline| N[Decision Communication]
-    L -->|Hold| O[Exception Handling]
+    E --> H[Auto-Approval]
+    F --> I[Standard Review]
+    G --> J[Enhanced Review]
     
-    M --> P[Onboarding Completion]
-    P --> Q[Post-Onboarding Monitoring]
-    Q --> R[Portfolio Management]
+    H --> K[Account Setup]
+    I --> K
+    J --> K
     
-    O --> S{Resolved?}
-    S -->|Yes| K
-    S -->|No| N
+    K --> L[Go-Live Support]
+    L --> M[Ongoing Monitoring]
+    M --> N[Portfolio Management]
     
-    N --> T[Appeal Process]
-    T --> U{Resubmit?}
-    U -->|Yes| D
-    U -->|No| V[End Process]
-    
-    R --> W[Continuous Improvement]
-    W --> X[Model Updates]
-    X --> B
+    style E fill:#c8e6c9
+    style F fill:#fff9c4
+    style G fill:#ffcdd2
 ```
 
-## Detailed Phase Flow Diagram
+## AI Agent Execution Flow (Actual Implementation)
 
 ```mermaid
 flowchart LR
-    subgraph "Phase 1: Pre-Application"
-        A1[Lead Generation] --> A2[Lead Scoring]
-        A2 --> A3[Qualification]
-        A3 --> A4[Initial Engagement]
+    subgraph "Document-First Processing"
+        A1[Document Processing Agent] --> A2[Market Qualification Agent]
+        A2 --> A3[Lead Qualification Agent]
+        A3 --> A4[Data Validation Agent]
     end
     
-    subgraph "Phase 2: Application"
-        B1[Portal Access] --> B2[Adaptive Questionnaire]
-        B2 --> B3[Data Collection]
-        B3 --> B4[Progress Tracking]
+    subgraph "Risk & Compliance Assessment"
+        B1[Risk Assessment Agent] --> B2[Compliance Verification Agent]
+        B2 --> B3[Decision Making Agent]
+        B3 --> B4[Exception Routing Agent]
     end
     
-    subgraph "Phase 3: Documents"
-        C1[Document Upload] --> C2[OCR Processing]
-        C2 --> C3[Classification]
-        C3 --> C4[Data Extraction]
+    subgraph "Communication & Setup"
+        C1[Communication Agent] --> C2[Account Provisioning Agent]
+        C2 --> C3[Monitoring Agent]
+        C3 --> C4[Optimization Agent]
     end
     
-    subgraph "Phase 4: Verification"
-        D1[Identity Verification] --> D2[KYC Checks]
-        D2 --> D3[AML Screening]
-        D3 --> D4[Compliance Validation]
-    end
-    
-    subgraph "Phase 5: Validation"
-        E1[Document Authentication] --> E2[Data Enrichment]
-        E2 --> E3[Cross-Reference]
-        E3 --> E4[GenAI Analysis]
-    end
-    
-    subgraph "Phase 6: Risk Assessment"
-        F1[Risk Modeling] --> F2[ML Analytics]
-        F2 --> F3[Risk Scoring]
-        F3 --> F4[Risk Classification]
-    end
-    
-    subgraph "Phase 7: Underwriting"
-        G1[Application Routing] --> G2[Underwriter Review]
-        G2 --> G3[Decision Matrix]
-        G3 --> G4[Final Decision]
+    subgraph "Onboarding Support"
+        D1[Onboarding Support Agent]
     end
     
     A4 --> B1
     B4 --> C1
     C4 --> D1
-    D4 --> E1
-    E4 --> F1
-    F4 --> G1
+    
+    style A1 fill:#e3f2fd
+    style B1 fill:#f3e5f5
+    style C1 fill:#e8f5e8
+    style D1 fill:#fff3e0
 ```
 
 ## Swimlane Diagram - Roles and Responsibilities
@@ -185,79 +158,77 @@ flowchart TD
     Y -->|No| P
 ```
 
-## Technology Architecture Diagram
+## Actual Technology Architecture (LangGraph Implementation)
 
 ```mermaid
 flowchart TB
-    subgraph "Presentation Layer"
-        UI1[Merchant Portal]
-        UI2[Underwriter Dashboard]
-        UI3[Admin Console]
-        UI4[Mobile App]
+    subgraph "Web Interface"
+        UI1[Flask Web App]
+        UI2[WebSocket Real-time Updates]
+        UI3[File Upload Interface]
     end
     
-    subgraph "API Gateway"
-        API[API Management Layer]
+    subgraph "LangGraph Orchestration"
+        LG1[StateGraph Engine]
+        LG2[Agent Executor]
+        LG3[Tool Calling Framework]
+        LG4[State Management]
     end
     
-    subgraph "Application Services"
-        AS1[Application Service]
-        AS2[Document Service]
-        AS3[Risk Service]
-        AS4[Decision Service]
-        AS5[Notification Service]
+    subgraph "14 AI Agents"
+        AG1[Document Processing]
+        AG2[Risk Assessment]
+        AG3[Decision Making]
+        AG4[Compliance Verification]
+        AG5[Data Validation]
+        AG6[Exception Routing]
+        AG7[Communication]
+        AG8[Account Provisioning]
+        AG9[Market Qualification]
+        AG10[Lead Qualification]
+        AG11[Monitoring]
+        AG12[Optimization]
+        AG13[Onboarding Support]
+        AG14[Application Assistant]
     end
     
-    subgraph "AI/ML Services"
-        ML1[GenAI Engine]
-        ML2[OCR Service]
-        ML3[Risk Models]
-        ML4[Fraud Detection]
-        ML5[NLP Service]
+    subgraph "Tool Integration (3-Layer Fallback)"
+        T1[Google Document AI ✅]
+        T2[Mock Credit APIs ⚠️]
+        T3[Mock Compliance APIs ⚠️]
+        T4[Basic Rule Engine 📋]
     end
     
-    subgraph "External Integrations"
-        EXT1[KYC/AML Providers]
-        EXT2[Credit Bureaus]
-        EXT3[Government DBs]
-        EXT4[Banking APIs]
-        EXT5[Sanctions Lists]
+    subgraph "Data Storage"
+        DB1[(SQLite Database)]
+        DB2[Local File Storage]
+        DB3[Agent Results Cache]
     end
     
-    subgraph "Data Layer"
-        DB1[(Application DB)]
-        DB2[(Document Store)]
-        DB3[(Analytics DB)]
-        DB4[(Audit Logs)]
-    end
+    UI1 --> LG1
+    UI2 --> LG2
+    UI3 --> LG3
     
-    UI1 --> API
-    UI2 --> API
-    UI3 --> API
-    UI4 --> API
+    LG1 --> AG1
+    LG1 --> AG2
+    LG1 --> AG3
+    LG2 --> AG4
+    LG2 --> AG5
+    LG3 --> AG6
     
-    API --> AS1
-    API --> AS2
-    API --> AS3
-    API --> AS4
-    API --> AS5
+    AG1 --> T1
+    AG2 --> T2
+    AG4 --> T3
+    AG6 --> T4
     
-    AS1 --> ML1
-    AS2 --> ML2
-    AS3 --> ML3
-    AS3 --> ML4
-    AS5 --> ML5
+    LG4 --> DB1
+    AG1 --> DB2
+    AG2 --> DB3
     
-    AS1 --> EXT1
-    AS3 --> EXT2
-    AS3 --> EXT3
-    AS1 --> EXT4
-    AS3 --> EXT5
-    
-    AS1 --> DB1
-    AS2 --> DB2
-    AS3 --> DB3
-    AS4 --> DB4
+    style T1 fill:#c8e6c9
+    style T2 fill:#fff9c4
+    style T3 fill:#fff9c4
+    style T4 fill:#ffcdd2
 ```
 
 ## Data Flow Diagram
@@ -517,39 +488,41 @@ flowchart TB
     CP --> DP3
 ```
 
-## Timeline and Milestones
+## AI Agent Processing Timeline (Actual Performance)
 
 ```mermaid
 gantt
-    title Merchant Onboarding Process Timeline
+    title AI Agent Execution Timeline by Workflow
     dateFormat X
-    axisFormat %s
+    axisFormat %H:%M
     
-    section Application Phase
-    Lead Qualification     :0, 1
-    Application Submission :1, 2
-    Document Upload       :2, 4
+    section Express Workflow (2-4 hours)
+    Document Processing    :0, 1
+    Risk Assessment       :1, 2
+    Decision Making       :2, 3
+    Account Provisioning  :3, 4
     
-    section Verification Phase
-    Identity Verification :4, 6
-    KYC/AML Checks      :6, 8
-    Document Processing  :4, 8
+    section Standard Workflow (1-2 days)
+    Document Processing    :0, 2
+    Data Validation       :2, 4
+    Risk Assessment       :4, 6
+    Compliance Verification :6, 8
+    Decision Making       :8, 10
+    Account Provisioning  :10, 12
+    Communication        :12, 24
     
-    section Assessment Phase
-    Data Validation     :8, 10
-    Risk Assessment     :10, 12
-    Underwriting Review :12, 15
-    
-    section Decision Phase
-    Decision Making     :15, 16
-    Communication      :16, 17
-    
-    section Setup Phase
-    Account Provisioning :17, 19
-    Integration Setup   :19, 21
-    Go-Live Support    :21, 22
-    
-    section Monitoring
-    Initial Monitoring  :22, 52
-    Portfolio Management :52, 365
+    section Comprehensive Workflow (2-5 days)
+    Document Processing    :0, 4
+    Market Qualification   :4, 6
+    Lead Qualification    :6, 8
+    Data Validation       :8, 12
+    Risk Assessment       :12, 16
+    Compliance Verification :16, 20
+    Decision Making       :20, 24
+    Exception Routing     :24, 28
+    Communication        :28, 32
+    Account Provisioning  :32, 36
+    Monitoring           :36, 48
+    Optimization         :48, 60
+    Onboarding Support   :60, 120
 ```

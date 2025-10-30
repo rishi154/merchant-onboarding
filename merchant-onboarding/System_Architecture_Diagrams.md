@@ -1,117 +1,95 @@
 # System Architecture and Technical Diagrams
+## Updated for AI Agent Implementation
 
-## High-Level System Architecture
+## High-Level System Architecture (Actual Implementation)
 
 ```mermaid
 C4Context
-    title Merchant Onboarding System Context
+    title AI-Powered Merchant Onboarding System
 
-    Person(merchant, "Merchant", "Business applying for payment processing services")
-    Person(underwriter, "Underwriter", "Reviews and approves merchant applications")
-    Person(compliance, "Compliance Officer", "Ensures regulatory compliance")
-    Person(admin, "System Admin", "Manages system configuration")
+    Person(merchant, "Merchant", "Uploads documents via web interface")
+    Person(admin, "System Admin", "Monitors AI agent performance")
 
-    System(onboarding, "Merchant Onboarding Platform", "Core platform for merchant application processing")
+    System(onboarding, "LangGraph AI Agent Platform", "14 AI agents with multi-workflow routing")
 
-    System_Ext(kyc, "KYC/AML Services", "Third-party identity verification and compliance services")
-    System_Ext(credit, "Credit Bureau APIs", "Credit scoring and financial data services")
-    System_Ext(banking, "Banking APIs", "Account verification and banking services")
-    System_Ext(govt, "Government Databases", "Business registration and regulatory data")
-    System_Ext(ai, "AI/ML Services", "Document processing and risk assessment")
+    System_Ext(google_ai, "Google Document AI", "Real OCR and document processing")
+    System_Ext(mock_apis, "Mock External APIs", "Simulated credit, KYC, compliance services")
+    System_Ext(database, "SQLite Database", "Application and agent results storage")
+    System_Ext(websocket, "Real-time Updates", "Live progress tracking via WebSocket")
 
-    Rel(merchant, onboarding, "Submits application")
-    Rel(underwriter, onboarding, "Reviews applications")
-    Rel(compliance, onboarding, "Monitors compliance")
-    Rel(admin, onboarding, "Configures system")
+    Rel(merchant, onboarding, "Uploads documents")
+    Rel(admin, onboarding, "Monitors agents")
 
-    Rel(onboarding, kyc, "Verifies identity")
-    Rel(onboarding, credit, "Checks credit")
-    Rel(onboarding, banking, "Verifies accounts")
-    Rel(onboarding, govt, "Validates business")
-    Rel(onboarding, ai, "Processes documents")
+    Rel(onboarding, google_ai, "Processes documents")
+    Rel(onboarding, mock_apis, "Simulates external checks")
+    Rel(onboarding, database, "Stores results")
+    Rel(onboarding, websocket, "Sends real-time updates")
 ```
 
-## Microservices Architecture
+## LangGraph Agent Architecture (Current Implementation)
 
 ```mermaid
 flowchart TB
-    subgraph "API Gateway Layer"
-        AG[API Gateway]
-        LB[Load Balancer]
-        AUTH[Authentication Service]
+    subgraph "Web Interface Layer"
+        WEB[Flask Web Application]
+        WS[WebSocket Server]
+        UI[File Upload Interface]
     end
     
-    subgraph "Application Services"
-        AS1[Application Service]
-        AS2[Document Service]
-        AS3[Risk Service]
-        AS4[Decision Service]
-        AS5[Notification Service]
-        AS6[Audit Service]
+    subgraph "LangGraph Orchestration"
+        SG[StateGraph Engine]
+        AE[Agent Executor]
+        SM[State Management]
+        TC[Tool Calling Framework]
     end
     
-    subgraph "AI/ML Services"
-        ML1[GenAI Service]
-        ML2[OCR Service]
-        ML3[Risk Model Service]
-        ML4[Fraud Detection Service]
-        ML5[NLP Service]
+    subgraph "AI Agent Layer (14 Agents)"
+        AG1[Document Processing]
+        AG2[Market Qualification]
+        AG3[Lead Qualification]
+        AG4[Data Validation]
+        AG5[Risk Assessment]
+        AG6[Compliance Verification]
+        AG7[Decision Making]
+        AG8[Exception Routing]
+        AG9[Communication]
+        AG10[Account Provisioning]
+        AG11[Monitoring]
+        AG12[Optimization]
+        AG13[Onboarding Support]
+        AG14[Application Assistant]
     end
     
-    subgraph "Integration Services"
-        IS1[KYC Integration]
-        IS2[Credit Bureau Integration]
-        IS3[Banking Integration]
-        IS4[Government DB Integration]
+    subgraph "Tool Integration (3-Layer Fallback)"
+        L1[Layer 1: Real APIs]
+        L2[Layer 2: Mock APIs]
+        L3[Layer 3: Basic Rules]
     end
     
-    subgraph "Data Layer"
-        DB1[(Application Database)]
-        DB2[(Document Store)]
-        DB3[(Analytics Database)]
-        DB4[(Audit Database)]
-        CACHE[(Redis Cache)]
-        QUEUE[(Message Queue)]
+    subgraph "Data Storage"
+        DB[(SQLite Database)]
+        FS[File Storage]
+        CACHE[Agent Results Cache]
     end
     
-    subgraph "Infrastructure"
-        MON[Monitoring]
-        LOG[Logging]
-        SEC[Security]
-        BACKUP[Backup]
-    end
+    WEB --> SG
+    WS --> AE
+    UI --> SM
     
-    LB --> AG
-    AG --> AUTH
-    AUTH --> AS1
-    AUTH --> AS2
-    AUTH --> AS3
-    AUTH --> AS4
-    AUTH --> AS5
-    AUTH --> AS6
+    SG --> AG1
+    SG --> AG2
+    AE --> AG3
+    AE --> AG4
+    SM --> AG5
+    TC --> AG6
     
-    AS1 --> ML1
-    AS2 --> ML2
-    AS3 --> ML3
-    AS3 --> ML4
-    AS5 --> ML5
+    AG1 --> L1
+    AG2 --> L2
+    AG3 --> L3
     
-    AS1 --> IS1
-    AS3 --> IS2
-    AS1 --> IS3
-    AS3 --> IS4
-    
-    AS1 --> DB1
-    AS2 --> DB2
-    AS3 --> DB3
-    AS6 --> DB4
-    AS1 --> CACHE
-    AS5 --> QUEUE
-    
-    MON --> AS1
-    LOG --> AS2
-    SEC --> AS3
-    BACKUP --> DB1
+    SG --> DB
+    AG1 --> FS
+    AE --> CACHE
 ```
 
 ## Data Flow Architecture
@@ -333,77 +311,66 @@ flowchart LR
     IE4 --> OP4
 ```
 
-## Database Architecture
+## Database Schema (Actual SQLAlchemy Implementation)
 
 ```mermaid
 erDiagram
-    MERCHANT ||--o{ APPLICATION : submits
-    APPLICATION ||--o{ DOCUMENT : contains
-    APPLICATION ||--o{ RISK_ASSESSMENT : has
-    APPLICATION ||--o{ DECISION : receives
+    MERCHANT_APPLICATION ||--o{ PROCESSING_STEP : tracks
     
-    MERCHANT {
-        string merchant_id PK
+    MERCHANT_APPLICATION {
+        string id PK
         string business_name
-        string legal_name
-        string tax_id
-        string business_type
-        string industry_code
+        string status
+        string current_agent
+        int progress_percentage
+        int documents_processed
+        float extraction_confidence
+        int manual_fields_required
+        datetime processing_start_time
+        datetime processing_end_time
+        json application_data
+        json extracted_data
+        json agent_results
+        string workflow_pattern
         datetime created_at
         datetime updated_at
     }
     
-    APPLICATION {
-        string application_id PK
-        string merchant_id FK
+    PROCESSING_STEP {
+        int id PK
+        string application_id FK
+        string agent_name
         string status
-        json application_data
-        datetime submitted_at
-        datetime completed_at
-        string assigned_underwriter
+        datetime start_time
+        datetime end_time
+        json result
+        string error_message
+        string error_details
+        string console_logs
     }
+```
+
+## Workflow Routing Logic (Actual Implementation)
+
+```mermaid
+flowchart TD
+    A[Document Analysis] --> B{Risk Assessment}
     
-    DOCUMENT {
-        string document_id PK
-        string application_id FK
-        string document_type
-        string file_path
-        json extracted_data
-        string verification_status
-        datetime uploaded_at
-    }
+    B -->|Low Risk<br/>Score < 30| C[Express Workflow]
+    B -->|Medium Risk<br/>Score 30-70| D[Standard Workflow]
+    B -->|High Risk<br/>Score > 70| E[Comprehensive Workflow]
     
-    RISK_ASSESSMENT {
-        string assessment_id PK
-        string application_id FK
-        float credit_score
-        float fraud_score
-        float overall_risk_score
-        string risk_tier
-        json risk_factors
-        datetime assessed_at
-    }
+    C --> F[4 Agents<br/>2-4 hours]
+    D --> G[7 Agents<br/>8-12 hours]
+    E --> H[13 Agents<br/>24-48 hours]
     
-    DECISION {
-        string decision_id PK
-        string application_id FK
-        string decision_type
-        string decision_reason
-        json conditions
-        string decided_by
-        datetime decided_at
-    }
+    F --> I[95% Automation]
+    G --> J[80% Automation]
+    H --> K[60% Automation]
     
-    AUDIT_LOG {
-        string log_id PK
-        string entity_id
-        string entity_type
-        string action
-        json old_values
-        json new_values
-        string user_id
-        datetime timestamp
-    }
+    style C fill:#c8e6c9
+    style D fill:#fff9c4
+    style E fill:#ffcdd2
 ```
 
 ## Integration Architecture

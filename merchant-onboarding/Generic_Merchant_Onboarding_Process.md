@@ -526,7 +526,7 @@ This generic merchant onboarding process represents the **current state** of mos
 - **Technology**: Modern platforms and AI/ML capabilities
 - **Experience**: Improved merchant and operational efficiency
 
-Organizations looking to modernize this process should consider the transformation strategies outlined in companion documents that leverage AI/ML technologies to achieve significant improvements in processing time, automation rates, and overall efficiency.
+Organizations looking to modernize this process should consider transformation strategies that leverage AI/ML technologies to achieve significant improvements in processing time, automation rates, and overall efficiency.
 
 ---
 
