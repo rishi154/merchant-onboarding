@@ -276,7 +276,20 @@ def resume_application(app_id):
 def preview_document(app_id, filename):
     """Preview uploaded document"""
     try:
-        file_path = os.path.join('uploads', app_id, filename)
+        from werkzeug.utils import secure_filename
+        
+        # Secure the filename and app_id
+        safe_app_id = secure_filename(app_id)
+        safe_filename = secure_filename(filename)
+        
+        # Construct safe path
+        upload_base = os.path.abspath('uploads')
+        file_path = os.path.join(upload_base, safe_app_id, safe_filename)
+        
+        # Ensure path is within uploads directory
+        if not file_path.startswith(upload_base):
+            return jsonify({'error': 'Invalid file path'}), 400
+        
         if not os.path.exists(file_path):
             return jsonify({'error': 'Document not found'}), 404
         
@@ -293,20 +306,34 @@ def preview_document(app_id, filename):
 def get_documents(app_id):
     """Get list of documents for an application"""
     try:
-        upload_dir = os.path.join('uploads', app_id)
+        from werkzeug.utils import secure_filename
+        
+        # Secure the app_id
+        safe_app_id = secure_filename(app_id)
+        
+        # Construct safe path
+        upload_base = os.path.abspath('uploads')
+        upload_dir = os.path.join(upload_base, safe_app_id)
+        
+        # Ensure path is within uploads directory
+        if not upload_dir.startswith(upload_base):
+            return jsonify({'error': 'Invalid path'}), 400
+        
         if not os.path.exists(upload_dir):
             return jsonify({'documents': []})
         
         documents = []
         for filename in os.listdir(upload_dir):
             if filename.endswith(('.pdf', '.png', '.jpg', '.jpeg', '.txt')):
-                file_path = os.path.join(upload_dir, filename)
-                documents.append({
-                    'filename': filename,
-                    'size': os.path.getsize(file_path),
-                    'type': detect_document_type(filename),
-                    'preview_url': f'/api/document/{app_id}/{filename}'
-                })
+                safe_filename = secure_filename(filename)
+                file_path = os.path.join(upload_dir, safe_filename)
+                if os.path.exists(file_path):
+                    documents.append({
+                        'filename': safe_filename,
+                        'size': os.path.getsize(file_path),
+                        'type': detect_document_type(safe_filename),
+                        'preview_url': f'/api/document/{safe_app_id}/{safe_filename}'
+                    })
         
         return jsonify({'documents': documents})
     except Exception as e:

@@ -1,441 +1,517 @@
 # Compliance and Regulatory Workflow Diagrams
+## Development Implementation with Mock APIs
 
-## KYC/AML Compliance Workflow
+**⚠️ IMPORTANT**: This documentation shows the development prototype implementation. Most compliance tools use **mock APIs** and simulated responses. This is **NOT production-ready** for regulated financial services.
 
-```mermaid
-flowchart TD
-    A[Merchant Application] --> B[Initial Screening]
-    B --> C{Sanctions Check}
-    C -->|Clear| D[Identity Verification]
-    C -->|Hit| E[Immediate Decline]
-    
-    D --> F{ID Verification Result}
-    F -->|Pass| G[Address Verification]
-    F -->|Fail| H[Manual ID Review]
-    
-    G --> I{Address Verified}
-    I -->|Yes| J[Business Verification]
-    I -->|No| K[Additional Address Docs]
-    
-    J --> L[Beneficial Owner Check]
-    L --> M{UBO Identified}
-    M -->|Complete| N[PEP Screening]
-    M -->|Incomplete| O[Request UBO Info]
-    
-    N --> P{PEP Status}
-    P -->|Clear| Q[Adverse Media Check]
-    P -->|PEP Identified| R[Enhanced Due Diligence]
-    
-    Q --> S{Media Check Result}
-    S -->|Clear| T[Risk Assessment]
-    S -->|Adverse Found| U[Manual Review Required]
-    
-    R --> V[EDD Documentation]
-    V --> W{EDD Acceptable}
-    W -->|Yes| X[High-Risk Approval]
-    W -->|No| Y[EDD Decline]
-    
-    T --> Z[KYC Complete]
-    U --> AA[Compliance Review]
-    AA --> BB{Compliance Decision}
-    BB -->|Approve| Z
-    BB -->|Decline| CC[Compliance Decline]
-    
-    H --> DD{Manual Review Result}
-    DD -->|Approve| G
-    DD -->|Decline| EE[ID Verification Fail]
-    
-    K --> FF{Additional Docs Received}
-    FF -->|Yes| I
-    FF -->|No| GG[Address Verification Fail]
-    
-    O --> HH{UBO Info Received}
-    HH -->|Yes| M
-    HH -->|No| II[UBO Incomplete]
-```
-
-## Document Verification Process
-
-```mermaid
-flowchart LR
-    subgraph "Document Upload"
-        DU1[Business License]
-        DU2[Bank Statements]
-        DU3[Tax Returns]
-        DU4[ID Documents]
-        DU5[Financial Statements]
-    end
-    
-    subgraph "OCR Processing"
-        OCR1[Image Quality Check]
-        OCR2[Text Extraction]
-        OCR3[Data Structuring]
-        OCR4[Confidence Scoring]
-    end
-    
-    subgraph "Verification Checks"
-        VC1[Format Validation]
-        VC2[Security Features]
-        VC3[Issuer Verification]
-        VC4[Expiration Check]
-        VC5[Cross-Reference]
-    end
-    
-    subgraph "Fraud Detection"
-        FD1[Template Matching]
-        FD2[Alteration Detection]
-        FD3[Synthetic Document Check]
-        FD4[Metadata Analysis]
-    end
-    
-    subgraph "Verification Results"
-        VR1[Authentic]
-        VR2[Suspicious]
-        VR3[Invalid]
-        VR4[Requires Manual Review]
-    end
-    
-    DU1 --> OCR1
-    DU2 --> OCR1
-    DU3 --> OCR1
-    DU4 --> OCR1
-    DU5 --> OCR1
-    
-    OCR1 --> OCR2
-    OCR2 --> OCR3
-    OCR3 --> OCR4
-    
-    OCR4 --> VC1
-    VC1 --> VC2
-    VC2 --> VC3
-    VC3 --> VC4
-    VC4 --> VC5
-    
-    VC5 --> FD1
-    FD1 --> FD2
-    FD2 --> FD3
-    FD3 --> FD4
-    
-    FD4 --> VR1
-    FD4 --> VR2
-    FD4 --> VR3
-    FD4 --> VR4
-```
-
-## Regulatory Reporting Workflow
+## Compliance Verification Agent Workflow (As Implemented)
 
 ```mermaid
 flowchart TD
-    subgraph "Data Collection"
-        DC1[Transaction Data]
-        DC2[Merchant Data]
-        DC3[Risk Assessments]
-        DC4[Compliance Actions]
-    end
+    A[Compliance Verification Agent] --> B[LLM Agent with Tools]
+    B --> C[Tool Selection Logic]
     
-    subgraph "Report Types"
-        RT1[SAR - Suspicious Activity]
-        RT2[CTR - Currency Transaction]
-        RT3[FBAR - Foreign Bank Account]
-        RT4[BSA - Bank Secrecy Act]
-        RT5[State Reporting]
-    end
+    C --> D[OFAC Sanctions Tool]
+    C --> E[PEP Screening Tool]
+    C --> F[AML Risk Assessment Tool]
+    C --> G[KYC Verification Tool]
     
-    subgraph "Report Generation"
-        RG1[Data Aggregation]
-        RG2[Threshold Analysis]
-        RG3[Report Formatting]
-        RG4[Quality Review]
-        RG5[Approval Process]
-    end
+    D --> H{Sanctions Clear?}
+    H -->|Clear| I[Continue Processing]
+    H -->|Hit| J[Immediate Decline]
     
-    subgraph "Filing Process"
-        FP1[Electronic Filing]
-        FP2[Confirmation Receipt]
-        FP3[Follow-up Actions]
-        FP4[Record Retention]
-    end
+    E --> K{PEP Status}
+    K -->|Clear| I
+    K -->|PEP Found| L[Enhanced Due Diligence]
     
-    DC1 --> RG1
-    DC2 --> RG1
-    DC3 --> RG1
-    DC4 --> RG1
+    F --> M{AML Risk Level}
+    M -->|Low Risk| I
+    M -->|High Risk| N[Enhanced Monitoring]
     
-    RG1 --> RG2
-    RG2 --> RT1
-    RG2 --> RT2
-    RG2 --> RT3
-    RG2 --> RT4
-    RG2 --> RT5
+    G --> O{Identity Verified}
+    O -->|Verified| I
+    O -->|Failed| P[Manual Review]
     
-    RT1 --> RG3
-    RT2 --> RG3
-    RT3 --> RG3
-    RT4 --> RG3
-    RT5 --> RG3
+    I --> Q[Compliance Score Calculation]
+    L --> Q
+    N --> Q
+    P --> Q
     
-    RG3 --> RG4
-    RG4 --> RG5
-    RG5 --> FP1
-    FP1 --> FP2
-    FP2 --> FP3
-    FP3 --> FP4
+    Q --> R{Overall Assessment}
+    R -->|Pass| S[Compliance Approved]
+    R -->|Fail| T[Compliance Declined]
+    R -->|Review| U[Human Review Required]
+    
+    style D fill:#c8e6c9
+    style E fill:#fff9c4
+    style F fill:#ffcdd2
+    style G fill:#e1f5fe
 ```
 
-## Enhanced Due Diligence (EDD) Process
+## Document Processing Agent Workflow (As Implemented)
+
+```mermaid
+flowchart TD
+    A[Document Processing Agent] --> B[LLM Agent with Tools]
+    B --> C[Document Classification Tool]
+    B --> D[OCR Processing Tool]
+    B --> E[Fraud Detection Tool]
+    
+    C --> F{Document Type}
+    F -->|Business License| G[Extract Business Data]
+    F -->|Bank Statement| H[Extract Financial Data]
+    F -->|Tax Return| I[Extract Tax Data]
+    F -->|ID Document| J[Extract Identity Data]
+    
+    D --> K{OCR Method}
+    K -->|Google Doc AI| L[Real OCR Processing]
+    K -->|Mock Mode| M[Mock OCR Processing]
+    
+    L --> N[Google Document AI API]
+    M --> O[Simulated Text Extraction]
+    
+    N --> P[Structured Data Extraction]
+    O --> P
+    
+    E --> Q{Fraud Detection Method}
+    Q -->|Google Vision| R[Real Fraud Detection]
+    Q -->|Mock Mode| S[Simulated Fraud Check]
+    
+    R --> T[Image Analysis]
+    S --> U[Random Fraud Indicators]
+    
+    P --> V[Confidence Scoring]
+    T --> V
+    U --> V
+    
+    V --> W[Overall Assessment]
+    W --> X{Quality Check}
+    X -->|High Quality| Y[Processing Complete]
+    X -->|Low Quality| Z[Manual Review Required]
+    
+    style L fill:#c8e6c9
+    style M fill:#fff9c4
+    style R fill:#c8e6c9
+    style S fill:#fff9c4
+```
+
+## Tool Configuration and Fallback System (As Implemented)
+
+```mermaid
+flowchart TD
+    A[Compliance Tool Execution] --> B{Configuration Check}
+    
+    B -->|Real APIs Enabled| C[Real Integration Layer]
+    B -->|Mock Mode| D[Mock Integration Layer]
+    
+    C --> E[OFAC API Integration]
+    C --> F[Jumio KYC Integration]
+    C --> G[Government DB Integration]
+    
+    D --> H[Mock OFAC Responses]
+    D --> I[Mock KYC Responses]
+    D --> J[Mock Government Responses]
+    
+    E --> K{API Available?}
+    F --> L{API Available?}
+    G --> M{API Available?}
+    
+    K -->|Yes| N[Real OFAC Check]
+    K -->|No| O[Fallback to Mock]
+    
+    L -->|Yes| P[Real KYC Check]
+    L -->|No| Q[Fallback to Mock]
+    
+    M -->|Yes| R[Real Gov DB Check]
+    M -->|No| S[Fallback to Mock]
+    
+    N --> T[Compliance Results]
+    O --> T
+    P --> T
+    Q --> T
+    R --> T
+    S --> T
+    H --> T
+    I --> T
+    J --> T
+    
+    T --> U[Agent Analysis]
+    U --> V[Final Compliance Score]
+    
+    style C fill:#c8e6c9
+    style D fill:#fff9c4
+    style O fill:#ffcdd2
+    style Q fill:#ffcdd2
+    style S fill:#ffcdd2
+```
+
+## Risk-Based Processing Logic (As Implemented)
 
 ```mermaid
 flowchart TB
-    A[EDD Trigger] --> B{Trigger Type}
-    B -->|High Risk Score| C[Risk-Based EDD]
-    B -->|PEP Identified| D[PEP EDD]
-    B -->|High-Risk Geography| E[Geographic EDD]
-    B -->|Large Volume| F[Volume-Based EDD]
+    A[Compliance Agent Result] --> B{Risk Assessment}
     
-    C --> G[Enhanced Financial Review]
-    D --> H[Source of Wealth Verification]
-    E --> I[Jurisdiction Risk Assessment]
-    F --> J[Business Model Deep Dive]
+    B -->|Low Risk Industry| C[Standard Processing]
+    B -->|High Risk Industry| D[Enhanced Processing]
     
-    G --> K[Additional Documentation]
-    H --> L[Enhanced Background Check]
-    I --> M[Regulatory Compliance Review]
-    J --> N[Volume Justification]
+    C --> E[Basic Compliance Checks]
+    D --> F[All Compliance Tools]
     
-    K --> O{Documentation Adequate?}
-    L --> P{Background Clear?}
-    M --> Q{Compliance Acceptable?}
-    N --> R{Volume Justified?}
+    E --> G[OFAC + KYC Only]
+    F --> H[OFAC + PEP + AML + KYC]
     
-    O -->|Yes| S[EDD Approved]
-    O -->|No| T[Request Additional Docs]
-    P -->|Yes| S
-    P -->|No| U[EDD Decline - Background]
-    Q -->|Yes| S
-    Q -->|No| V[EDD Decline - Compliance]
-    R -->|Yes| S
-    R -->|No| W[EDD Decline - Volume]
+    G --> I{Results Clear?}
+    H --> J{Results Clear?}
     
-    T --> X{Docs Provided?}
-    X -->|Yes| O
-    X -->|No| Y[EDD Decline - Incomplete]
+    I -->|Yes| K[Low Risk Approval]
+    I -->|No| L[Standard Review]
     
-    S --> Z[High-Risk Monitoring Setup]
+    J -->|Yes| M[High Risk Approval]
+    J -->|No| N[Enhanced Review]
+    
+    K --> O[Standard Monitoring]
+    L --> P[Manual Review Queue]
+    M --> Q[Enhanced Monitoring]
+    N --> P
+    
+    P --> R{Human Decision}
+    R -->|Approve| S[Conditional Approval]
+    R -->|Decline| T[Compliance Decline]
+    
+    S --> U[Special Conditions]
+    
+    style D fill:#ffcdd2
+    style F fill:#ffcdd2
+    style N fill:#ffcdd2
+    style Q fill:#ffcdd2
 ```
 
-## Audit Trail and Documentation
+## Database Audit Trail (As Implemented)
 
 ```mermaid
 flowchart LR
-    subgraph "Event Capture"
-        EC1[User Actions]
-        EC2[System Events]
-        EC3[Decision Points]
-        EC4[Data Changes]
-        EC5[External Calls]
+    subgraph "Agent Execution"
+        AE1[Agent Start]
+        AE2[Tool Calls]
+        AE3[Agent Results]
+        AE4[Human Review]
     end
     
-    subgraph "Audit Logging"
-        AL1[Timestamp]
-        AL2[User ID]
-        AL3[Action Type]
-        AL4[Data Before/After]
-        AL5[IP Address]
-        AL6[Session Info]
+    subgraph "Database Storage"
+        DS1[merchant_applications table]
+        DS2[review_queue table]
+        DS3[agent_results JSON]
+        DS4[application_data JSON]
     end
     
-    subgraph "Log Storage"
-        LS1[Immutable Storage]
-        LS2[Encryption]
-        LS3[Backup Systems]
-        LS4[Retention Policies]
+    subgraph "Audit Fields"
+        AF1[created_at]
+        AF2[updated_at]
+        AF3[current_agent]
+        AF4[needs_review]
+        AF5[review_agent]
     end
     
-    subgraph "Audit Reports"
-        AR1[Activity Reports]
-        AR2[Compliance Reports]
-        AR3[Exception Reports]
-        AR4[Performance Reports]
+    subgraph "Review Process"
+        RP1[Human Reviewer]
+        RP2[Review Decision]
+        RP3[Status Update]
+        RP4[Workflow Resume]
     end
     
-    subgraph "Regulatory Access"
-        RA1[Examiner Portal]
-        RA2[Report Generation]
-        RA3[Data Export]
-        RA4[Search Capabilities]
-    end
+    AE1 --> DS1
+    AE2 --> DS3
+    AE3 --> DS3
+    AE4 --> DS2
     
-    EC1 --> AL1
-    EC2 --> AL2
-    EC3 --> AL3
-    EC4 --> AL4
-    EC5 --> AL5
+    DS1 --> AF1
+    DS1 --> AF2
+    DS1 --> AF3
+    DS1 --> AF4
+    DS1 --> AF5
     
-    AL1 --> LS1
-    AL2 --> LS1
-    AL3 --> LS2
-    AL4 --> LS2
-    AL5 --> LS3
-    AL6 --> LS4
+    DS2 --> RP1
+    RP1 --> RP2
+    RP2 --> RP3
+    RP3 --> RP4
     
-    LS1 --> AR1
-    LS2 --> AR2
-    LS3 --> AR3
-    LS4 --> AR4
+    RP4 --> DS1
     
-    AR1 --> RA1
-    AR2 --> RA2
-    AR3 --> RA3
-    AR4 --> RA4
+    style DS1 fill:#c8e6c9
+    style DS2 fill:#fff9c4
+    style DS3 fill:#e1f5fe
 ```
 
-## Sanctions Screening Process
+## OFAC Sanctions Tool Implementation
 
 ```mermaid
 flowchart TD
-    A[Merchant Data Input] --> B[Data Normalization]
-    B --> C[Fuzzy Matching Algorithm]
+    A[OFAC Sanctions Tool] --> B{Configuration Mode}
     
-    C --> D{Match Found?}
-    D -->|No Match| E[Clear - Proceed]
-    D -->|Potential Match| F[Match Analysis]
-    D -->|Exact Match| G[Immediate Block]
+    B -->|Real Integration| C[OFAC API Integration]
+    B -->|Mock Mode| D[Mock OFAC Integration]
     
-    F --> H{Match Quality}
-    H -->|Low Quality| I[False Positive - Clear]
-    H -->|Medium Quality| J[Manual Review Required]
-    H -->|High Quality| K[Likely Match - Block]
+    C --> E[Business Name Check]
+    C --> F[Owner Name Check]
     
-    J --> L[Compliance Analyst Review]
-    L --> M{Analyst Decision}
-    M -->|Not a Match| N[Clear with Documentation]
-    M -->|Confirmed Match| O[Sanctions Hit - Block]
-    M -->|Uncertain| P[Senior Review Required]
+    D --> G[Simulated Sanctions Check]
+    G --> H[99.9% Clear Rate]
+    G --> I[0.1% Hit Rate]
     
-    P --> Q[Senior Compliance Officer]
-    Q --> R{Senior Decision}
-    R -->|Clear| S[Clear with Senior Approval]
-    R -->|Block| T[Sanctions Confirmed - Block]
+    E --> J{API Response}
+    F --> J
     
-    G --> U[Sanctions Documentation]
-    K --> U
-    O --> U
-    T --> U
+    J -->|Success| K[Parse Results]
+    J -->|Error| L[Fallback to Mock]
     
-    U --> V[Regulatory Notification]
-    V --> W[Case Closure]
+    K --> M{Match Found?}
+    M -->|No Match| N[Sanctions Clear]
+    M -->|Match Found| O[Sanctions Hit]
     
-    E --> X[Continue Onboarding]
-    I --> X
-    N --> X
-    S --> X
+    L --> P[Mock Response]
+    P --> Q[Random Result]
+    
+    H --> N
+    I --> O
+    Q --> R{Mock Result}
+    R -->|Clear| N
+    R -->|Hit| O
+    
+    N --> S[Continue Processing]
+    O --> T[Immediate Decline]
+    
+    S --> U[Log Clear Result]
+    T --> V[Log Sanctions Hit]
+    
+    style C fill:#c8e6c9
+    style D fill:#fff9c4
+    style L fill:#ffcdd2
+    style T fill:#ffcdd2
 ```
 
-## Customer Due Diligence (CDD) Matrix
+## Industry Risk Assessment Logic (As Implemented)
 
 ```mermaid
 flowchart TB
-    subgraph "Customer Risk Factors"
-        CRF1[Customer Type]
-        CRF2[Geographic Location]
-        CRF3[Business Activities]
-        CRF4[Transaction Patterns]
-        CRF5[Delivery Channels]
-    end
+    A[Business Industry Input] --> B{Industry Classification}
     
-    subgraph "Risk Categories"
-        RC1[Low Risk]
-        RC2[Standard Risk]
-        RC3[High Risk]
-        RC4[Prohibited]
-    end
+    B -->|Technology| C[Low Risk - 0.1]
+    B -->|Retail| D[Low Risk - 0.2]
+    B -->|Healthcare| E[Medium Risk - 0.3]
+    B -->|Financial| F[Medium Risk - 0.4]
+    B -->|Gambling| G[High Risk - 0.8]
+    B -->|Crypto| H[High Risk - 0.9]
+    B -->|Adult| I[Prohibited - 1.0]
+    B -->|Firearms| J[Prohibited - 1.0]
     
-    subgraph "CDD Requirements"
-        CDR1[Basic CDD]
-        CDR2[Standard CDD]
-        CDR3[Enhanced CDD]
-        CDR4[No Service]
-    end
+    C --> K[Standard Processing]
+    D --> K
+    E --> L[Enhanced Monitoring]
+    F --> L
+    G --> M[Enhanced Due Diligence]
+    H --> M
+    I --> N[Automatic Decline]
+    J --> N
     
-    subgraph "Documentation Level"
-        DL1[Minimal Documentation]
-        DL2[Standard Documentation]
-        DL3[Comprehensive Documentation]
-        DL4[N/A]
-    end
+    K --> O[Basic Compliance Tools]
+    L --> P[Standard Compliance Tools]
+    M --> Q[All Compliance Tools]
     
-    subgraph "Monitoring Level"
-        ML1[Standard Monitoring]
-        ML2[Enhanced Monitoring]
-        ML3[Intensive Monitoring]
-        ML4[N/A]
-    end
+    O --> R[OFAC + KYC]
+    P --> S[OFAC + KYC + AML]
+    Q --> T[OFAC + KYC + AML + PEP]
     
-    CRF1 --> RC1
-    CRF2 --> RC2
-    CRF3 --> RC3
-    CRF4 --> RC3
-    CRF5 --> RC4
+    R --> U[Low Risk Score]
+    S --> V[Medium Risk Score]
+    T --> W[High Risk Score]
     
-    RC1 --> CDR1
-    RC2 --> CDR2
-    RC3 --> CDR3
-    RC4 --> CDR4
-    
-    CDR1 --> DL1
-    CDR2 --> DL2
-    CDR3 --> DL3
-    CDR4 --> DL4
-    
-    CDR1 --> ML1
-    CDR2 --> ML1
-    CDR3 --> ML2
-    CDR3 --> ML3
-    CDR4 --> ML4
+    style G fill:#ffcdd2
+    style H fill:#ffcdd2
+    style I fill:#ff5252
+    style J fill:#ff5252
+    style N fill:#ff5252
 ```
 
-## Compliance Monitoring Dashboard
+## Human Review Interface (As Implemented)
 
 ```mermaid
 flowchart LR
-    subgraph "Real-Time Alerts"
-        RTA1[Sanctions Hits]
-        RTA2[High-Risk Transactions]
-        RTA3[Threshold Breaches]
-        RTA4[System Anomalies]
+    subgraph "Review Queue"
+        RQ1[Data Validation Reviews]
+        RQ2[Compliance Reviews]
+        RQ3[Exception Cases]
+        RQ4[High-Risk Applications]
     end
     
-    subgraph "Compliance Metrics"
-        CM1[KYC Completion Rate]
-        CM2[AML Alert Resolution Time]
-        CM3[False Positive Rate]
-        CM4[Regulatory Report Timeliness]
+    subgraph "Review Interface"
+        RI1[Application Details]
+        RI2[Agent Results]
+        RI3[Document Viewer]
+        RI4[Risk Indicators]
     end
     
-    subgraph "Risk Indicators"
-        RI1[Portfolio Risk Score]
-        RI2[High-Risk Merchant Count]
-        RI3[Suspicious Activity Volume]
-        RI4[Regulatory Changes Impact]
+    subgraph "Review Actions"
+        RA1[Approve Application]
+        RA2[Decline Application]
+        RA3[Request More Info]
+        RA4[Escalate to Senior]
     end
     
-    subgraph "Operational Status"
-        OS1[System Uptime]
-        OS2[Processing Delays]
-        OS3[Queue Backlogs]
-        OS4[Staff Workload]
+    subgraph "Status Updates"
+        SU1[Database Update]
+        SU2[Workflow Resume]
+        SU3[Notification Sent]
+        SU4[Audit Log Entry]
     end
     
-    subgraph "Action Items"
-        AI1[Immediate Actions Required]
-        AI2[Pending Reviews]
-        AI3[Escalated Cases]
-        AI4[Regulatory Deadlines]
-    end
+    RQ1 --> RI1
+    RQ2 --> RI1
+    RQ3 --> RI1
+    RQ4 --> RI1
     
-    RTA1 --> AI1
-    RTA2 --> AI1
-    CM3 --> AI2
-    RI2 --> AI3
-    CM4 --> AI4
+    RI1 --> RA1
+    RI2 --> RA2
+    RI3 --> RA3
+    RI4 --> RA4
+    
+    RA1 --> SU1
+    RA2 --> SU1
+    RA3 --> SU1
+    RA4 --> SU1
+    
+    SU1 --> SU2
+    SU2 --> SU3
+    SU3 --> SU4
+    
+    style RQ2 fill:#ffcdd2
+    style RQ4 fill:#ffcdd2
+    style RA2 fill:#ff5252
 ```
+
+## Basic Risk Scoring (Development Implementation)
+
+```mermaid
+flowchart TB
+    A[Application Data] --> B[Industry Risk Lookup]
+    A --> C[Basic Document Analysis]
+    
+    B --> D{Industry Type}
+    D -->|Technology/Retail| E[Low Risk: 0.1-0.2]
+    D -->|Healthcare/Financial| F[Medium Risk: 0.3-0.4]
+    D -->|Gambling/Crypto| G[High Risk: 0.8-0.9]
+    D -->|Adult/Firearms| H[Prohibited: 1.0]
+    
+    C --> I{Document Quality}
+    I -->|High Confidence| J[Quality Score: 0.1]
+    I -->|Medium Confidence| K[Quality Score: 0.3]
+    I -->|Low Confidence| L[Quality Score: 0.5]
+    
+    E --> M[Calculate Final Score]
+    F --> M
+    G --> M
+    H --> N[Auto-Decline]
+    
+    J --> M
+    K --> M
+    L --> M
+    
+    M --> O{Final Risk Score}
+    O -->|0-300| P[Express Workflow]
+    O -->|301-700| Q[Standard Workflow]
+    O -->|701-1000| R[Comprehensive Workflow]
+    
+    style H fill:#ff5252
+    style N fill:#ff5252
+    style G fill:#ffcdd2
+    style R fill:#ffcdd2
+```
+
+
+
+
+
+## Simple Fraud Detection (Development Implementation)
+
+```mermaid
+flowchart LR
+    A[Document Upload] --> B{Processing Mode}
+    
+    B -->|Google Vision Enabled| C[Google Vision API]
+    B -->|Mock Mode| D[Simulated Fraud Check]
+    
+    C --> E[Image Analysis]
+    E --> F[Text Detection]
+    E --> G[Object Detection]
+    
+    D --> H[Random Fraud Indicators]
+    H --> I[95% Clean Rate]
+    H --> J[5% Fraud Indicators]
+    
+    F --> K{Text Quality}
+    G --> L{Image Quality}
+    
+    K -->|Clear Text| M[Low Fraud Risk]
+    K -->|Blurry/Altered| N[Medium Fraud Risk]
+    
+    L -->|Original Image| M
+    L -->|Suspicious Artifacts| N
+    
+    I --> M
+    J --> N
+    
+    M --> O[Fraud Score: 0.1]
+    N --> P[Fraud Score: 0.5]
+    
+    O --> Q[Continue Processing]
+    P --> R[Flag for Review]
+    
+    style C fill:#c8e6c9
+    style D fill:#fff9c4
+    style N fill:#ffcdd2
+    style P fill:#ffcdd2
+```
+
+
+
+
+
+
+
+
+
+## Development Implementation Status
+
+**✅ Currently Implemented:**
+- Basic compliance agent framework with LangGraph
+- Mock API responses for OFAC, KYC, AML, PEP screening
+- Simple industry-based risk scoring
+- Google Document AI for real OCR processing
+- Google Vision API for basic fraud detection
+- SQLite database with basic audit fields
+- Flask web interface for human review
+- WebSocket real-time progress updates
+
+**❌ NOT Implemented (Mock/Simulated Only):**
+- Real OFAC sanctions database connections
+- Real KYC provider integrations (Jumio, Onfido, etc.)
+- Advanced ML fraud detection models
+- Behavioral analytics and pattern recognition
+- Velocity checking and network analysis
+- Enterprise security and encryption
+- Production-grade audit logging
+- Role-based access controls
+
+**⚠️ Development Environment Limitations:**
+- 75% of compliance checks use mock APIs
+- No real regulatory database connections
+- Basic Flask session security only
+- SQLite database (not production-ready)
+- No authentication/authorization system
+- Local file storage (not encrypted)
+
+**Production Requirements Still Needed:**
+- Real OFAC/KYC/AML API integrations ($500K+ annual costs)
+- Enterprise security infrastructure
+- Production database with encryption
+- Compliance certifications (SOC 2, PCI DSS)
+- Professional audit logging and SIEM
+- Multi-factor authentication system

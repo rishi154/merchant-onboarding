@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 import asyncio
 import os
+import subprocess
 from config.tool_config import ToolConfig
 
 class DocumentProcessingInput(BaseModel):
@@ -68,6 +69,10 @@ class OCRProcessingTool(BaseTool):
             
             # Initialize Document AI client
             client = documentai.DocumentProcessorServiceClient()
+            
+            # Validate document path to prevent path traversal
+            if not os.path.exists(document_path) or '..' in document_path:
+                raise ValueError(f"Invalid document path: {document_path}")
             
             # Read document file
             with open(document_path, "rb") as image:

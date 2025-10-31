@@ -33,6 +33,13 @@ def requires_human_review(agent_name):
     return AGENT_REVIEW_CONFIG.get(agent_name, True)  # Default to True for safety
 
 def load_agent(agent_path, agent_name):
+    import subprocess
+    import os
+    
+    # Validate agent_path to prevent command injection
+    if not os.path.exists(agent_path) or not agent_path.endswith('.py'):
+        raise ValueError(f"Invalid agent path: {agent_path}")
+    
     spec = importlib.util.spec_from_file_location(agent_name, agent_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

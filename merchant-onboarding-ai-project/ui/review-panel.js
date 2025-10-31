@@ -149,10 +149,16 @@ class ReviewPanel {
             return;
         }
         
-        document.getElementById('review-agent-name').textContent = reviewData.review_agent;
+        const agentNameElement = document.getElementById('review-agent-name');
+        if (agentNameElement) {
+            agentNameElement.textContent = reviewData.review_agent || 'Unknown Agent';
+        }
         
         const resultSummary = this.formatAgentResult(reviewData.review_data);
-        document.getElementById('agent-result-summary').innerHTML = resultSummary;
+        const summaryElement = document.getElementById('agent-result-summary');
+        if (summaryElement) {
+            summaryElement.innerHTML = resultSummary;
+        }
         
         panel.classList.remove('hidden');
         console.log('Review panel should now be visible');
@@ -165,29 +171,53 @@ class ReviewPanel {
     formatAgentResult(agentResult) {
         if (!agentResult) return '<p>No result data available</p>';
 
-        let html = '<div class="agent-result-details">';
+        const container = document.createElement('div');
+        container.className = 'agent-result-details';
         
         if (agentResult.confidence) {
-            html += `<div class="metric">
-                <label>Confidence:</label>
-                <span>${agentResult.confidence}%</span>
-            </div>`;
+            const metricDiv = document.createElement('div');
+            metricDiv.className = 'metric';
+            
+            const label = document.createElement('label');
+            label.textContent = 'Confidence:';
+            
+            const span = document.createElement('span');
+            span.textContent = agentResult.confidence + '%';
+            
+            metricDiv.appendChild(label);
+            metricDiv.appendChild(span);
+            container.appendChild(metricDiv);
         }
 
         if (agentResult.risk_score) {
-            html += `<div class="metric">
-                <label>Risk Score:</label>
-                <span>${agentResult.risk_score}</span>
-            </div>`;
+            const metricDiv = document.createElement('div');
+            metricDiv.className = 'metric';
+            
+            const label = document.createElement('label');
+            label.textContent = 'Risk Score:';
+            
+            const span = document.createElement('span');
+            span.textContent = String(agentResult.risk_score);
+            
+            metricDiv.appendChild(label);
+            metricDiv.appendChild(span);
+            container.appendChild(metricDiv);
         }
 
-        html += `<details class="raw-data">
-            <summary>View Details</summary>
-            <pre>${JSON.stringify(agentResult, null, 2)}</pre>
-        </details>`;
+        const details = document.createElement('details');
+        details.className = 'raw-data';
+        
+        const summary = document.createElement('summary');
+        summary.textContent = 'View Details';
+        
+        const pre = document.createElement('pre');
+        pre.textContent = JSON.stringify(agentResult, null, 2);
+        
+        details.appendChild(summary);
+        details.appendChild(pre);
+        container.appendChild(details);
 
-        html += '</div>';
-        return html;
+        return container.outerHTML;
     }
 
     updateStatus(status) {

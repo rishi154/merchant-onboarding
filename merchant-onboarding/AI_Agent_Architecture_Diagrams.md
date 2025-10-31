@@ -1,7 +1,7 @@
 # AI Agent Architecture Diagrams
 ## Actual Implementation Architecture
 
-## Multi-Workflow Agent System Overview
+## Multi-Workflow Agent System Overview (As Implemented)
 
 ```mermaid
 flowchart TD
@@ -9,153 +9,148 @@ flowchart TD
     B --> C[Risk Assessment Agent]
     C --> D{Risk-Based Workflow Routing}
     
-    D -->|LOW Risk<br/>Simple Business| E[Express Workflow<br/>4 Agents - 15-30 min]
-    D -->|MEDIUM Risk<br/>Standard Business| F[Standard Workflow<br/>7 Agents - 1-2 hours]
-    D -->|HIGH Risk<br/>Complex Business| G[Comprehensive Workflow<br/>14 Agents - 2-4 hours]
+    D -->|LOW Risk<br/>Score 0-300| E[Express Workflow<br/>4 Agents - 20 min]
+    D -->|MEDIUM Risk<br/>Score 301-700| F[Standard Workflow<br/>7 Agents - 90 min]
+    D -->|HIGH Risk<br/>Score 701-1000| G[Comprehensive Workflow<br/>13 Agents - 180 min]
     
-    D --> G[Auto-Approval Pipeline]
-    E --> H[Standard Review Pipeline]
-    F --> I[Enhanced Review Pipeline]
+    E --> H{Human Review?}
+    F --> H
+    G --> H
     
-    G --> J[Account Setup]
-    H --> J
-    I --> J
+    H -->|Required| I[Pause for Review]
+    H -->|Not Required| J[Account Setup]
+    
+    I --> K[Human Reviewer]
+    K -->|Approve| J
+    K -->|Decline| L[Application Declined]
     
     style D fill:#c8e6c9
-    style E fill:#fff9c4
-    style F fill:#ffcdd2
+    style E fill:#c8e6c9
+    style F fill:#fff9c4
+    style G fill:#ffcdd2
 ```
 
-## 14 AI Agents - Complete System Architecture
+## 13 AI Agents - Actual Implementation
 
 ```mermaid
 graph TB
-    subgraph "Phase 0: Segmentation"
-        A0[Merchant Segmentation Agent]
+    subgraph "Core Agents (All Workflows)"
+        A1[Document Processing Agent]
+        A2[Risk Assessment Agent]
+        A3[Decision Making Agent]
+        A4[Account Provisioning Agent]
     end
     
-    subgraph "Phase 1: Acquisition (Agents 1-2)"
-        A1[Lead Qualification Agent]
-        A2[Application Assistant Agent]
-    end
-    
-    subgraph "Phase 2: Processing (Agents 3-5)"
-        A3[Document Processing Agent]
-        A4[Compliance Verification Agent]
+    subgraph "Standard/Comprehensive Agents"
         A5[Data Validation Agent]
+        A6[Compliance Verification Agent]
+        A7[Communication Agent]
     end
     
-    subgraph "Phase 3: Assessment (Agents 6-8)"
-        A6[Risk Assessment Agent]
-        A7[Decision Making Agent]
-        A8[Exception Routing Agent]
+    subgraph "Comprehensive Only Agents"
+        A8[Market Qualification Agent]
+        A9[Lead Qualification Agent]
+        A10[Exception Routing Agent]
+        A11[Monitoring Agent]
+        A12[Optimization Agent]
+        A13[Onboarding Support Agent]
     end
     
-    subgraph "Phase 4: Setup (Agents 9-10)"
-        A9[Communication Agent]
-        A10[Account Provisioning Agent]
-    end
-    
-    subgraph "Phase 5: Support (Agents 11-12)"
-        A11[Onboarding Support Agent]
-        A12[Monitoring Agent]
-    end
-    
-    subgraph "Phase 6: Optimization (Agent 13)"
-        A13[Optimization Agent]
-    end
-    
-    A0 --> A1
     A1 --> A2
     A2 --> A3
     A3 --> A4
-    A4 --> A5
-    A5 --> A6
-    A6 --> A7
-    A7 --> A8
+    
+    A2 --> A5
+    A2 --> A6
+    A6 --> A3
+    A4 --> A7
+    
+    A2 --> A8
     A8 --> A9
-    A9 --> A10
-    A10 --> A11
+    A9 --> A5
+    A3 --> A10
+    A10 --> A7
+    A4 --> A11
     A11 --> A12
     A12 --> A13
 ```
 
-## Workflow Pattern Comparison
+## Actual Workflow Implementation (From Code)
 
 ```mermaid
-graph LR
-    subgraph "Routing Workflow (All merchants start here)"
-        R1[Document Processing] --> R2[Risk Assessment]
-        R2 --> R3{Route Based on Risk Tier}
-    end
-    
-    subgraph "Express Workflow (LOW risk - 50% of merchants)"
+graph TB
+    subgraph "Express Workflow (4 agents)"
         E1[Document Processing] --> E2[Risk Assessment]
         E2 --> E3[Decision Making] --> E4[Account Provisioning]
     end
     
-    subgraph "Standard Workflow (MEDIUM risk - 30% of merchants)"
-        S1[Document Processing] --> S2[Data Validation]
-        S2 --> S3[Risk Assessment] --> S4[Compliance Verification]
+    subgraph "Standard Workflow (7 agents)"
+        S1[Document Processing] --> S3[Risk Assessment]
+        S3 --> S2[Data Validation]
+        S3 --> S4[Compliance Verification]
         S4 --> S5[Decision Making] --> S6[Account Provisioning]
         S6 --> S7[Communication]
     end
     
-    subgraph "Comprehensive Workflow (HIGH risk - 20% of merchants)"
-        C1[Document Processing] --> C2[Market Qualification]
-        C2 --> C3[Lead Qualification] --> C4[Data Validation]
-        C4 --> C5[Risk Assessment] --> C6[Compliance Verification]
+    subgraph "Comprehensive Workflow (13 agents)"
+        C1[Document Processing] --> C2[Risk Assessment]
+        C2 --> C3[Market Qualification] --> C4[Lead Qualification]
+        C4 --> C5[Data Validation] --> C6[Compliance Verification]
         C6 --> C7[Decision Making] --> C8[Exception Routing]
         C8 --> C9[Communication] --> C10[Account Provisioning]
         C10 --> C11[Monitoring] --> C12[Optimization]
         C12 --> C13[Onboarding Support]
     end
     
-    R3 -->|LOW Risk| E1
-    R3 -->|MEDIUM Risk| S1
-    R3 -->|HIGH Risk| C1
+    ROUTE{Risk Score} -->|0-300| E1
+    ROUTE -->|301-700| S1
+    ROUTE -->|701-1000| C1
     
     style E1 fill:#c8e6c9
     style S1 fill:#fff9c4
     style C1 fill:#ffcdd2
 ```
 
-## LangGraph State Management Architecture
+## LangGraph State Management (Actual Implementation)
 
 ```mermaid
 flowchart TB
-    subgraph "LangGraph Orchestration"
+    subgraph "LangGraph Core"
         LG[StateGraph Engine]
         SM[MerchantOnboardingState]
-        TC[Tool Calling Agents]
-        FB[Fallback System]
+        AW[Agent Wrapper Functions]
+        HR[Human Review System]
     end
     
-    subgraph "Agent Types"
-        AT1[LLM Reasoning Only<br/>6 agents]
-        AT2[Tool-Calling Agents<br/>4 agents]
-        AT3[Rule-Based Logic<br/>2 agents]
-        AT4[API Integration<br/>2 agents]
+    subgraph "Agent Configuration"
+        AC1[Auto-Approve Agents: 11]
+        AC2[Human Review Required: 2]
+        AC3[Data Validation]
+        AC4[Compliance Verification]
     end
     
-    subgraph "State Flow"
-        SF1[Application Data] --> SF2[Document Processing]
-        SF2 --> SF3[Agent Results] --> SF4[Decision Output]
+    subgraph "State Management"
+        SF1[Application ID]
+        SF2[Agent Results JSON]
+        SF3[Review Status]
+        SF4[Workflow Pattern]
+        SF5[Progress Tracking]
     end
     
     LG --> SM
-    SM --> TC
-    TC --> FB
+    SM --> AW
+    AW --> HR
     
-    LG --> AT1
-    LG --> AT2
-    LG --> AT3
-    LG --> AT4
+    AC1 --> AW
+    AC2 --> HR
+    AC3 --> HR
+    AC4 --> HR
     
     SM --> SF1
     SF1 --> SF2
     SF2 --> SF3
     SF3 --> SF4
+    SF4 --> SF5
 ```
 
 ## Tool-Calling Agent Architecture
@@ -188,30 +183,7 @@ graph TB
     end
 ```
 
-## 3-Layer Fallback System
 
-```mermaid
-flowchart TD
-    A[Agent Execution] --> B{Primary Layer Available?}
-    
-    B -->|Yes| C[Layer 1: Real APIs<br/>Google Doc AI, Experian, OFAC]
-    B -->|No| D{Secondary Layer Available?}
-    
-    D -->|Yes| E[Layer 2: Mock APIs<br/>Simulated responses, cached data]
-    D -->|No| F[Layer 3: Basic Rules<br/>Hardcoded logic, minimal processing]
-    
-    C --> G[High Quality Results]
-    E --> H[Medium Quality Results]
-    F --> I[Basic Results - Workflow Continues]
-    
-    G --> J[Continue Workflow]
-    H --> J
-    I --> J
-    
-    style C fill:#c8e6c9
-    style E fill:#fff9c4
-    style F fill:#ffcdd2
-```
 
 ## Real-Time Progress Tracking
 
@@ -288,94 +260,179 @@ graph TB
     style PI1 fill:#ffcdd2
 ```
 
-## Performance Metrics by Workflow
+
+
+
+
+
+
+
+
+## Human Review Workflow (Implementation)
 
 ```mermaid
-xychart-beta
-    title "Processing Time by Workflow Pattern"
-    x-axis [Express, Standard, Comprehensive]
-    y-axis "Hours" 0 --> 120
-    bar [4, 24, 72]
-```
-
-```mermaid
-pie title Automation Rate by Workflow
-    "Express (95%)" : 95
-    "Standard (80%)" : 80
-    "Comprehensive (60%)" : 60
-```
-
-## Database Schema - Actual Implementation
-
-```mermaid
-erDiagram
-    MERCHANT_APPLICATION ||--o{ PROCESSING_STEP : has
+sequenceDiagram
+    participant A as Agent
+    participant W as Workflow
+    participant DB as Database
+    participant E as Event System
+    participant H as Human Reviewer
     
-    MERCHANT_APPLICATION {
-        string id PK
-        string business_name
-        string status
-        string current_agent
-        int progress_percentage
-        int documents_processed
-        float extraction_confidence
-        int manual_fields_required
-        datetime processing_start_time
-        datetime processing_end_time
-        json application_data
-        json extracted_data
-        json agent_results
-        string workflow_pattern
-        datetime created_at
-        datetime updated_at
-    }
+    A->>W: Agent completes processing
+    W->>W: Check AGENT_REVIEW_CONFIG
     
-    PROCESSING_STEP {
-        string id PK
-        string application_id FK
-        string agent_name
-        string status
-        json result_data
-        datetime started_at
-        datetime completed_at
-    }
+    alt Review Required
+        W->>DB: Set needs_review = 'true'
+        W->>E: Create threading.Event
+        W->>W: Pause workflow (await event)
+        H->>DB: Review and approve/decline
+        H->>E: Set event (resume workflow)
+        W->>W: Continue processing
+    else Auto-Approve
+        W->>W: Continue immediately
+    end
 ```
 
-## Deployment Architecture - Current Implementation
+## File Structure (Actual Implementation)
+
+```
+merchant-onboarding-ai-project/
+├── src/
+│   ├── main.py                    # Entry point with test data
+│   ├── multi_workflow.py          # Multi-workflow + human review
+│   ├── workflow_router.py         # Risk-based routing logic
+│   ├── state.py                   # MerchantOnboardingState class
+│   └── document_analyzer.py       # Document processing utilities
+├── agents/                        # 13 agent directories
+│   ├── document-processing/src/agent.py
+│   ├── risk-assessment/src/agent.py
+│   ├── compliance-verification/src/agent.py
+│   ├── data-validation/src/agent.py
+│   └── [9 other agents]/
+├── ui/
+│   ├── app.py                     # Flask web server
+│   ├── review_api.py              # Human review endpoints
+│   └── [HTML/CSS/JS files]/
+├── tools/                         # Tool functions for agents
+│   ├── document_tools.py          # Google Doc AI integration
+│   ├── risk_tools.py             # Risk assessment tools
+│   ├── compliance_tools.py       # KYC/AML/OFAC tools
+│   └── validation_tools.py       # Data validation tools
+└── database/
+    ├── models.py                  # SQLAlchemy models
+    └── merchant_onboarding.db     # SQLite database
+```
+
+## System Architecture Components
+
+### High-Level System Architecture
 
 ```mermaid
-graph TB
-    subgraph "Development Environment"
-        DE1[Flask Web Server :5000]
-        DE2[SQLite Database]
-        DE3[Local File Storage]
-        DE4[Mock API Services]
+C4Context
+    title AI-Powered Merchant Onboarding System
+
+    Person(merchant, "Merchant", "Uploads documents via web interface")
+    Person(admin, "System Admin", "Monitors AI agent performance")
+    Person(reviewer, "Human Reviewer", "Reviews AI agent decisions")
+
+    System(onboarding, "LangGraph AI Agent Platform", "14 AI agents with multi-workflow routing")
+
+    System_Ext(google_ai, "Google Document AI", "Real OCR and document processing")
+    System_Ext(mock_apis, "Mock External APIs", "Simulated credit, KYC, compliance services")
+    System_Ext(database, "SQLite Database", "Application and agent results storage")
+    System_Ext(websocket, "Real-time Updates", "Live progress tracking via WebSocket")
+
+    Rel(merchant, onboarding, "Uploads documents")
+    Rel(admin, onboarding, "Monitors agents")
+    Rel(reviewer, onboarding, "Reviews AI decisions")
+
+    Rel(onboarding, google_ai, "Processes documents")
+    Rel(onboarding, mock_apis, "Simulates external checks")
+    Rel(onboarding, database, "Stores results")
+    Rel(onboarding, websocket, "Sends real-time updates")
+```
+
+### Current Implementation Architecture
+
+```mermaid
+flowchart LR
+    subgraph "Web Layer"
+        WL1[Flask Web App]
+        WL2[WebSocket Server]
+        WL3[File Upload]
     end
     
-    subgraph "Production Ready Components"
-        PR1[LangGraph Workflow Engine]
-        PR2[14 AI Agents]
-        PR3[3-Layer Fallback System]
-        PR4[Real-time WebSocket Updates]
-        PR5[Multi-Workflow Routing]
+    subgraph "Processing Layer"
+        PL1[LangGraph Engine]
+        PL2[AI Agents]
+        PL3[Tool Functions]
     end
     
-    subgraph "Scalability Path"
-        SP1[Kubernetes Deployment]
-        SP2[PostgreSQL Database]
-        SP3[Redis Cache]
-        SP4[Load Balancers]
-        SP5[Real API Integrations]
+    subgraph "Data Layer"
+        DL1[(SQLite Database)]
+        DL2[Local File Storage]
+        DL3[Agent Results Cache]
     end
     
-    DE1 --> PR1
-    DE2 --> PR2
-    DE3 --> PR3
-    DE4 --> PR4
+    subgraph "External APIs"
+        EA1[Google Document AI]
+        EA2[Google Vision API]
+        EA3[Mock APIs]
+    end
     
-    PR1 -.-> SP1
-    PR2 -.-> SP2
-    PR3 -.-> SP3
-    PR4 -.-> SP4
-    PR5 -.-> SP5
+    WL1 --> PL1
+    WL2 --> PL1
+    WL3 --> PL2
+    
+    PL1 --> PL2
+    PL2 --> PL3
+    PL3 --> EA1
+    PL3 --> EA2
+    PL3 --> EA3
+    
+    PL1 --> DL1
+    PL2 --> DL2
+    PL2 --> DL3
 ```
+
+
+
+### Current AI Processing (Simplified)
+
+```mermaid
+flowchart LR
+    subgraph "Input"
+        I1[Document Upload]
+        I2[Application Data]
+    end
+    
+    subgraph "AI Processing"
+        AP1[Google Document AI]
+        AP2[Google Vision API]
+        AP3[LangGraph Agents]
+        AP4[Mock ML Models]
+    end
+    
+    subgraph "Output"
+        O1[Risk Scores]
+        O2[Compliance Status]
+        O3[Processing Results]
+    end
+    
+    I1 --> AP1
+    I1 --> AP2
+    I2 --> AP3
+    AP3 --> AP4
+    
+    AP1 --> O3
+    AP2 --> O3
+    AP3 --> O1
+    AP4 --> O2
+```
+
+
+
+
+
+
+
