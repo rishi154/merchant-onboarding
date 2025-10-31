@@ -45,13 +45,16 @@ This repository contains the **complete technical implementation** for AI-powere
 └── docs/                          # Documentation
 ```
 
-## 🤖 **14 AI Agents Architecture**
+## 🤖 **14 AI Agents Architecture with Human Review System**
 
 ### **Phase 0: Pre-Application Segmentation**
 - **Merchant Segmentation Agent** ⭐ **NEW** - Classify merchants into processing segments
 
-### **Phase 1-6: Enhanced Processing**
+### **Phase 1-6: Enhanced Processing with Regulatory Compliance**
 - **13 Enhanced Agents** with segment-aware capabilities and automated exception handling
+- **Human Review System** ⭐ **NEW** - Regulatory-compliant manual oversight for BSA/AML compliance
+- **Event-Driven Architecture** - Efficient workflow pausing and resumption
+- **Configuration-Driven Review** - Selective agent review based on AGENT_REVIEW_CONFIG
 
 ## 📊 **Segment-Specific Performance**
 

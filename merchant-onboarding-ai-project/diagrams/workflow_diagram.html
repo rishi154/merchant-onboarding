@@ -504,6 +504,155 @@ flowchart TD
         </div>
     </div>
 
+    <div class="workflow">
+        <h2>Human Review System Architecture</h2>
+        <div class="mermaid">
+flowchart TD
+    AGENT[Agent Execution] --> CHECK{Review Required?}
+    
+    CHECK -->|No| CONTINUE[Continue Workflow]
+    CHECK -->|Yes| PAUSE[Pause Workflow]
+    
+    PAUSE --> SAVE[Save Agent Results to DB]
+    SAVE --> EVENT[Create Threading.Event]
+    EVENT --> QUEUE[Add to Review Queue]
+    QUEUE --> WAIT[Wait for Human Review]
+    
+    WAIT --> REVIEW[Human Reviewer]
+    REVIEW --> DECISION{Approve/Reject}
+    
+    DECISION -->|Approve| API_APPROVE[API: /review_decision]
+    DECISION -->|Reject| API_REJECT[API: /review_decision]
+    
+    API_APPROVE --> TRIGGER[Trigger Event]
+    API_REJECT --> TRIGGER
+    
+    TRIGGER --> RESUME[Resume Workflow]
+    RESUME --> CONTINUE
+    
+    CONTINUE --> NEXT[Next Agent]
+    
+    subgraph CONFIG ["Configuration"]
+        AGENT_CONFIG[AGENT_REVIEW_CONFIG<br/>document_processing: True<br/>market_qualification: True<br/>data_validation: False<br/>risk_assessment: False]
+    end
+    
+    subgraph DATABASE ["Database Integration"]
+        DB_SAVE[Direct Agent Results Save]
+        DB_REVIEW[Review Status Tracking]
+        DB_PROGRESS[Progress Persistence]
+    end
+    
+    subgraph THREADING ["Thread Safety"]
+        THREAD_EVENT[Threading.Event]
+        THREAD_LOCK[Threading.Lock]
+        ASYNC_THREAD[asyncio.to_thread]
+    end
+    
+    CHECK -.-> CONFIG
+    SAVE -.-> DATABASE
+    EVENT -.-> THREADING
+    
+    style AGENT fill:#2196f3
+    style CHECK fill:#ff9800
+    style PAUSE fill:#f44336
+    style REVIEW fill:#9c27b0
+    style RESUME fill:#4caf50
+    style CONFIG fill:#e3f2fd
+    style DATABASE fill:#fff3e0
+    style THREADING fill:#f3e5f5
+        </div>
+    </div>
+
+    <div class="workflow">
+        <h2>Event-Driven Review Process Flow</h2>
+        <div class="mermaid">
+flowchart TD
+    START[Workflow Starts] --> EXEC[Execute Agent]
+    EXEC --> COMPLETE[Agent Completes]
+    COMPLETE --> RESULT[Generate Agent Result]
+    
+    RESULT --> DB_SAVE[Save Result to Database]
+    DB_SAVE --> CONFIG_CHECK{Check AGENT_REVIEW_CONFIG}
+    
+    CONFIG_CHECK -->|Review Required| REVIEW_FLOW[Review Flow]
+    CONFIG_CHECK -->|Auto-Approved| NEXT_AGENT[Continue to Next Agent]
+    
+    subgraph REVIEW_PROCESS ["Human Review Process"]
+        REVIEW_FLOW --> SET_STATUS[Set needs_review = true]
+        SET_STATUS --> CREATE_EVENT[Create Threading.Event]
+        CREATE_EVENT --> PAUSE_WORKFLOW[Pause Workflow]
+        PAUSE_WORKFLOW --> WAIT_HUMAN[Wait for Human Decision]
+        
+        WAIT_HUMAN --> HUMAN_UI[Human Reviewer UI]
+        HUMAN_UI --> MAKE_DECISION[Make Approval Decision]
+        MAKE_DECISION --> API_CALL[POST /api/review_decision]
+        
+        API_CALL --> UPDATE_DB[Update Database]
+        UPDATE_DB --> TRIGGER_EVENT[Trigger Threading.Event]
+        TRIGGER_EVENT --> RESUME_WORKFLOW[Resume Workflow]
+    end
+    
+    RESUME_WORKFLOW --> NEXT_AGENT
+    NEXT_AGENT --> MORE{More Agents?}
+    
+    MORE -->|Yes| EXEC
+    MORE -->|No| END[Workflow Complete]
+    
+    subgraph COMPLIANCE ["Regulatory Compliance"]
+        AUDIT[Audit Trail]
+        BSA_AML[BSA/AML Compliance]
+        HUMAN_OVERSIGHT[Genuine Human Oversight]
+    end
+    
+    REVIEW_PROCESS -.-> COMPLIANCE
+    
+    style START fill:#4caf50
+    style REVIEW_PROCESS fill:#ffcdd2
+    style COMPLIANCE fill:#e8f5e8
+    style END fill:#4caf50
+        </div>
+    </div>
+
+    <div class="workflow">
+        <h2>Database Schema for Human Review</h2>
+        <div class="mermaid">
+flowchart TD
+    subgraph MERCHANT_APP ["MerchantApplication Table"]
+        ID[id: Primary Key]
+        AGENT_RESULTS[agent_results: JSON<br/>Stores all agent outputs]
+        NEEDS_REVIEW[needs_review: String<br/>'true'/'false']
+        REVIEW_AGENT[review_agent: String<br/>Current agent under review]
+        REVIEW_DATA[review_data: JSON<br/>Data being reviewed]
+        CURRENT_AGENT[current_agent: String<br/>Currently executing agent]
+        UPDATED_AT[updated_at: DateTime<br/>Last modification time]
+    end
+    
+    subgraph REVIEW_FLOW ["Review Data Flow"]
+        AGENT_COMPLETE[Agent Completes] --> SAVE_RESULT[Save to agent_results]
+        SAVE_RESULT --> SET_REVIEW[Set needs_review = 'true']
+        SET_REVIEW --> SET_AGENT[Set review_agent = agent_name]
+        SET_AGENT --> SET_DATA[Set review_data = agent_result]
+        
+        HUMAN_DECISION[Human Makes Decision] --> UPDATE_STATUS[Update review status]
+        UPDATE_STATUS --> CLEAR_REVIEW[Set needs_review = 'false']
+        CLEAR_REVIEW --> TIMESTAMP[Update updated_at]
+    end
+    
+    subgraph PROGRESS_TRACKING ["Progress Reconstruction"]
+        LOAD_APP[Load Application] --> READ_RESULTS[Read agent_results JSON]
+        READ_RESULTS --> RECONSTRUCT[Reconstruct Agent History]
+        RECONSTRUCT --> DISPLAY[Display in UI Pipeline]
+    end
+    
+    MERCHANT_APP --> REVIEW_FLOW
+    MERCHANT_APP --> PROGRESS_TRACKING
+    
+    style MERCHANT_APP fill:#e3f2fd
+    style REVIEW_FLOW fill:#fff3e0
+    style PROGRESS_TRACKING fill:#f3e5f5
+        </div>
+    </div>
+
     <script>
         mermaid.initialize({startOnLoad:true});
     </script>
