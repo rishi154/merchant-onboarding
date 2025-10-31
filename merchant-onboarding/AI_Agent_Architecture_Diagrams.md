@@ -5,12 +5,13 @@
 
 ```mermaid
 flowchart TD
-    A[Document Upload] --> B[AI Document Analysis]
-    B --> C{Workflow Routing Decision}
+    A[Document Upload] --> B[Document Processing Agent]
+    B --> C[Risk Assessment Agent]
+    C --> D{Risk-Based Workflow Routing}
     
-    C -->|Low Risk<br/>Simple Business| D[Express Workflow<br/>4 Agents - 2-4 hours]
-    C -->|Medium Risk<br/>Standard Business| E[Standard Workflow<br/>7 Agents - 1-2 days]
-    C -->|High Risk<br/>Complex Business| F[Comprehensive Workflow<br/>13 Agents - 2-5 days]
+    D -->|LOW Risk<br/>Simple Business| E[Express Workflow<br/>4 Agents - 15-30 min]
+    D -->|MEDIUM Risk<br/>Standard Business| F[Standard Workflow<br/>7 Agents - 1-2 hours]
+    D -->|HIGH Risk<br/>Complex Business| G[Comprehensive Workflow<br/>14 Agents - 2-4 hours]
     
     D --> G[Auto-Approval Pipeline]
     E --> H[Standard Review Pipeline]
@@ -83,19 +84,24 @@ graph TB
 
 ```mermaid
 graph LR
-    subgraph "Express Workflow (50% of merchants)"
+    subgraph "Routing Workflow (All merchants start here)"
+        R1[Document Processing] --> R2[Risk Assessment]
+        R2 --> R3{Route Based on Risk Tier}
+    end
+    
+    subgraph "Express Workflow (LOW risk - 50% of merchants)"
         E1[Document Processing] --> E2[Risk Assessment]
         E2 --> E3[Decision Making] --> E4[Account Provisioning]
     end
     
-    subgraph "Standard Workflow (30% of merchants)"
+    subgraph "Standard Workflow (MEDIUM risk - 30% of merchants)"
         S1[Document Processing] --> S2[Data Validation]
         S2 --> S3[Risk Assessment] --> S4[Compliance Verification]
         S4 --> S5[Decision Making] --> S6[Account Provisioning]
         S6 --> S7[Communication]
     end
     
-    subgraph "Comprehensive Workflow (20% of merchants)"
+    subgraph "Comprehensive Workflow (HIGH risk - 20% of merchants)"
         C1[Document Processing] --> C2[Market Qualification]
         C2 --> C3[Lead Qualification] --> C4[Data Validation]
         C4 --> C5[Risk Assessment] --> C6[Compliance Verification]
@@ -104,6 +110,10 @@ graph LR
         C10 --> C11[Monitoring] --> C12[Optimization]
         C12 --> C13[Onboarding Support]
     end
+    
+    R3 -->|LOW Risk| E1
+    R3 -->|MEDIUM Risk| S1
+    R3 -->|HIGH Risk| C1
     
     style E1 fill:#c8e6c9
     style S1 fill:#fff9c4

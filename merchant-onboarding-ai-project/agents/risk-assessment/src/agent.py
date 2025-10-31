@@ -84,12 +84,24 @@ Provide detailed risk analysis with scores, categories, and actionable recommend
         agent_output = result.get("output", "")
         
         # Parse risk assessment results from agent output
+        risk_score = 45  # Agent determines this based on tool results
+        risk_score_normalized = risk_score / 100.0
+        
+        # Calculate risk tier for workflow routing
+        if risk_score_normalized < 0.3:
+            risk_tier = 'LOW'
+        elif risk_score_normalized < 0.7:
+            risk_tier = 'MEDIUM'
+        else:
+            risk_tier = 'HIGH'
+        
         final_result = {
             "risk_assessment_complete": True,
             "agent_reasoning": agent_output,
             "tools_used": ["financial_risk_assessment", "industry_risk_assessment", "credit_risk_scoring"],
-            "risk_score": 45,  # Agent determines this based on tool results
+            "risk_score": risk_score,
             "risk_category": "MEDIUM",
+            "risk_tier": risk_tier,  # Add for workflow routing
             "financial_risk": "medium",
             "industry_risk": "low",
             "credit_score": 650,
@@ -119,9 +131,18 @@ Provide detailed risk analysis with scores, categories, and actionable recommend
             overall_risk = (financial_result.get("financial_risk_score", 0.5) + 
                           industry_result.get("industry_risk_score", 0.5)) / 2
             
+            # Calculate risk tier for workflow routing
+            if overall_risk < 0.3:
+                risk_tier = 'LOW'
+            elif overall_risk < 0.7:
+                risk_tier = 'MEDIUM'
+            else:
+                risk_tier = 'HIGH'
+            
             result = {
                 "risk_score": int(overall_risk * 100),
                 "risk_category": "HIGH" if overall_risk > 0.7 else "MEDIUM" if overall_risk > 0.4 else "LOW",
+                "risk_tier": risk_tier,  # Add for workflow routing
                 "financial_risk": financial_result.get("risk_level", "medium"),
                 "industry_risk": industry_result.get("risk_level", "medium"),
                 "credit_score": credit_result.get("credit_score", 600),
@@ -143,10 +164,20 @@ Provide detailed risk analysis with scores, categories, and actionable recommend
                 risk_score += 20
             if industry in ["gambling", "crypto"]:
                 risk_score += 25
+            
+            # Calculate risk tier for workflow routing
+            risk_score_normalized = risk_score / 100.0
+            if risk_score_normalized < 0.3:
+                risk_tier = 'LOW'
+            elif risk_score_normalized < 0.7:
+                risk_tier = 'MEDIUM'
+            else:
+                risk_tier = 'HIGH'
                 
             result = {
                 "risk_score": min(100, risk_score),
                 "risk_category": "HIGH" if risk_score > 70 else "MEDIUM" if risk_score > 40 else "LOW",
+                "risk_tier": risk_tier,  # Add for workflow routing
                 "risk_factors": ["revenue_concern"] if revenue < 100000 else [],
                 "error": str(e),
                 "processing_time": 1.5

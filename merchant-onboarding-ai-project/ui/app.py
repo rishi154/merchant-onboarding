@@ -902,48 +902,19 @@ def debug_application(app_id):
     finally:
         session.close()
 
-@app.route('/api/workflow-config')
-def get_workflow_config():
-    """Get workflow configuration - steps and metadata"""
-    try:
-        import sys
-        sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-        from workflow_router import get_workflow_steps, get_workflow_metadata
-        
-        # Return all workflow patterns
-        patterns = ['express_workflow', 'standard_workflow', 'comprehensive_workflow']
-        workflows = {}
-        
-        for pattern in patterns:
-            workflows[pattern] = {
-                'steps': get_workflow_steps(pattern),
-                'metadata': get_workflow_metadata(pattern)
-            }
-        
-        return jsonify({
-            'workflows': workflows,
-            'default_pattern': 'comprehensive_workflow'
-        })
-    except ImportError:
-        # Fallback
-        return jsonify({
-            'workflows': {
-                'comprehensive_workflow': {
-                    'steps': [
-                        {'name': 'Market Qualification', 'description': 'Market analysis and qualification'},
-                        {'name': 'Document Processing', 'description': 'Extract and validate documents'},
-                        {'name': 'Risk Assessment', 'description': 'Comprehensive risk analysis'},
-                        {'name': 'Decision Making', 'description': 'Final approval decision'}
-                    ],
-                    'metadata': {
-                        'name': 'Comprehensive Workflow',
-                        'estimated_time': '2-24 hours',
-                        'automation_rate': '60%'
-                    }
-                }
-            },
-            'default_pattern': 'comprehensive_workflow'
-        })
+@app.route('/api/workflow-stages/<pattern>')
+def get_workflow_stages(pattern):
+    """Get workflow stages for a specific pattern"""
+    # Define stages based on actual workflow definitions
+    workflow_stages = {
+        'routing_workflow': ['document_processing', 'risk_assessment'],
+        'express_workflow': ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'],
+        'standard_workflow': ['document_processing', 'risk_assessment', 'data_validation', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
+        'comprehensive_workflow': ['document_processing', 'risk_assessment', 'market_qualification', 'lead_qualification', 'data_validation', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
+    }
+    
+    stages = workflow_stages.get(pattern, workflow_stages['comprehensive_workflow'])
+    return jsonify({'stages': stages})
 
 @app.route('/upload', methods=['POST'])
 def handle_upload():
@@ -1054,6 +1025,9 @@ def process_documents():
         
         documents = final_documents
         
+        # Intelligent workflow routing - will be determined after document processing
+        workflow_pattern = 'routing_workflow'  # Special pattern for routing phase
+        
         # Save to database after documents are processed
         session = Session()
         try:
@@ -1076,17 +1050,14 @@ def process_documents():
             session.commit()
         finally:
             session.close()
-        
-        # Simple workflow routing for testing
-        workflow_pattern = 'comprehensive_workflow'
         workflow_meta = {
-            'name': 'Comprehensive Workflow',
-            'description': 'Full 14-agent review process',
-            'estimated_time': '2-4 hours',
-            'automation_rate': '60%',
-            'risk_level': 'Medium'
+            'name': 'Analyzing Documents',
+            'description': 'Processing documents to determine optimal workflow',
+            'estimated_time': 'Determining...',
+            'automation_rate': 'TBD',
+            'risk_level': 'Analyzing'
         }
-        routing_reason = f"Selected {workflow_meta['name']} for {len(documents)} documents"
+        routing_reason = f"Analyzing {len(documents)} documents to determine optimal workflow"
         routing_analysis = {
             'complexity_score': 15,
             'document_types': [detect_document_type(doc['filename']) for doc in documents]
@@ -1221,9 +1192,19 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                 session_temp.close()
             
             # Calculate progress based on correct workflow
-            total_agents = 4 if db_workflow_pattern == 'express_workflow' else 7 if db_workflow_pattern == 'standard_workflow' else 14
+            if db_workflow_pattern == 'routing_workflow':
+                total_agents = 2  # Only document_processing + market_qualification
+            elif db_workflow_pattern == 'express_workflow':
+                total_agents = 4
+            elif db_workflow_pattern == 'standard_workflow':
+                total_agents = 7
+            else:
+                total_agents = 14
+            
             completed_count = len(agent_progress_tracker)
             progress = min(100, int((completed_count / total_agents) * 100))
+            
+            print(f"[{app_id}] Progress calculation: {completed_count}/{total_agents} agents = {progress}% (pattern: {db_workflow_pattern})")
             
             # Force 100% when all agents are done
             if completed_count >= total_agents:
@@ -1370,9 +1351,137 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
         asyncio.set_event_loop(loop)
         
         try:
-            result = loop.run_until_complete(
-                process_merchant_application(application_data, documents, progress_callback)
-            )
+            # Check if this is routing phase
+            if workflow_pattern == 'routing_workflow':
+                print(f"[{app_id}] Starting routing workflow to determine optimal pattern")
+                
+                # Run routing workflow first (document_processing + market_qualification)
+                result = loop.run_until_complete(
+                    process_merchant_application(application_data, documents, progress_callback)
+                )
+                
+                # Determine actual workflow from risk assessment result
+                selected_pattern = 'comprehensive_workflow'  # Default fallback
+                risk_tier = 'HIGH'  # Default fallback
+                
+                if result and 'risk_assessment' in result:
+                    risk_assessment = result['risk_assessment']
+                    risk_tier = risk_assessment.get('risk_tier', 'HIGH')
+                    
+                    if risk_tier == 'LOW':
+                        selected_pattern = 'express_workflow'
+                    elif risk_tier == 'MEDIUM':
+                        selected_pattern = 'standard_workflow'
+                    else:
+                        selected_pattern = 'comprehensive_workflow'
+                    
+                    print(f"[{app_id}] Routing determined: {selected_pattern} (risk: {risk_tier})")
+                else:
+                    print(f"[{app_id}] No risk assessment result - defaulting to comprehensive")
+                
+                # Update database with selected pattern
+                session = Session()
+                try:
+                    application = session.query(MerchantApplication).filter_by(id=app_id).first()
+                    if application:
+                        application.workflow_pattern = selected_pattern
+                        session.commit()
+                        print(f"[{app_id}] Updated database with workflow pattern: {selected_pattern}")
+                finally:
+                    session.close()
+                
+                # Emit workflow selection to UI
+                workflow_meta = {
+                    'express_workflow': {'name': 'Express Workflow', 'estimated_time': '15-30 min', 'agents': 4},
+                    'standard_workflow': {'name': 'Standard Workflow', 'estimated_time': '1-2 hours', 'agents': 7},
+                    'comprehensive_workflow': {'name': 'Comprehensive Workflow', 'estimated_time': '2-4 hours', 'agents': 14}
+                }[selected_pattern]
+                
+                socketio.emit('workflow_selected', {
+                    'application_id': app_id,
+                    'pattern': selected_pattern,
+                    'name': workflow_meta['name'],
+                    'estimated_time': workflow_meta['estimated_time'],
+                    'total_agents': workflow_meta['agents'],
+                    'risk_tier': risk_tier
+                })
+                
+                print(f"[{app_id}] Emitted workflow_selected event: {workflow_meta['name']}")
+                
+                # Continue with selected workflow (reset progress tracking)
+                application_data['workflow_pattern'] = selected_pattern
+                # Reset progress tracking for new workflow
+                if 'agent_progress_tracker' in locals():
+                    agent_progress_tracker.clear()
+                
+                print(f"[{app_id}] Starting selected workflow: {selected_pattern}")
+                # Create new progress callback for selected workflow
+                selected_progress_tracker = {}
+                
+                def selected_progress_callback(agent_name, status, result):
+                    print(f"[{app_id}] *** SELECTED WORKFLOW PROGRESS ***", flush=True)
+                    print(f"[{app_id}] Agent {agent_name}: {status}", flush=True)
+                    
+                    # Track agent completion for selected workflow
+                    if status == 'completed':
+                        selected_progress_tracker[agent_name] = result or {}
+                    
+                    # Get correct total agents for selected workflow
+                    total_agents = 4 if selected_pattern == 'express_workflow' else 7 if selected_pattern == 'standard_workflow' else 14
+                    completed_count = len(selected_progress_tracker)
+                    progress = min(100, int((completed_count / total_agents) * 100))
+                    
+                    print(f"[{app_id}] Selected workflow progress: {completed_count}/{total_agents} = {progress}%")
+                    
+                    # Update database and emit progress
+                    if not globals().get('app_shutdown', False):
+                        session = None
+                        try:
+                            session = Session()
+                            application = session.query(MerchantApplication).filter_by(id=app_id).first()
+                            
+                            if application:
+                                application.current_agent = agent_name
+                                application.progress_percentage = progress
+                                application.updated_at = datetime.now()
+                                
+                                if status in ['completed', 'review_required'] and result:
+                                    current_results = application.agent_results or {}
+                                    current_results[agent_name] = result
+                                    application.agent_results = current_results
+                                    
+                                    if status == 'review_required':
+                                        application.needs_review = 'true'
+                                        application.review_agent = agent_name
+                                        application.review_data = result
+                                
+                                session.commit()
+                                print(f"[{app_id}] Updated database for selected workflow")
+                        except Exception as e:
+                            print(f"[{app_id}] DB error in selected workflow: {e}")
+                        finally:
+                            if session:
+                                session.close()
+                    
+                    # Emit progress
+                    socketio.emit('agent_progress', {
+                        'application_id': app_id,
+                        'agent_name': agent_name,
+                        'status': status,
+                        'progress_percentage': progress,
+                        'current_agent': agent_name,
+                        'agent_results': {agent_name: result} if result else {}
+                    })
+                
+                result = loop.run_until_complete(
+                    process_merchant_application(application_data, documents, selected_progress_callback)
+                )
+            else:
+                # Direct workflow execution
+                result = loop.run_until_complete(
+                    process_merchant_application(application_data, documents, progress_callback)
+                )
+            
             print(f"[{app_id}] Workflow completed successfully", flush=True)
         except Exception as e:
             print(f"[{app_id}] Workflow error: {e}", flush=True)

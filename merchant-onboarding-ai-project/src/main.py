@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 from workflow import create_onboarding_workflow
-from multi_workflow import create_express_workflow, create_standard_workflow, create_comprehensive_workflow
+from multi_workflow import create_express_workflow, create_standard_workflow, create_comprehensive_workflow, create_routing_workflow
 from workflow_router import determine_workflow_pattern, get_workflow_metadata
 from state import MerchantOnboardingState, ApplicationStatus
 import sys
@@ -50,7 +50,9 @@ async def process_merchant_application(application_data: dict, documents: list =
         print(f"\n[ROUTING] Using workflow pattern: {workflow_pattern}")
         
         # Step 2: Create appropriate workflow
-        if workflow_pattern == "express_workflow":
+        if workflow_pattern == "routing_workflow":
+            workflow = create_routing_workflow()
+        elif workflow_pattern == "express_workflow":
             workflow = create_express_workflow()
         elif workflow_pattern == "standard_workflow":
             workflow = create_standard_workflow()

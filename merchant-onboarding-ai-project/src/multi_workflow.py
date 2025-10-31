@@ -13,14 +13,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'database'))
 # Configuration for which agents require human review
 AGENT_REVIEW_CONFIG = {
     # Set to True to require human review, False to auto-approve
-    'document_processing': True,
-    'data_validation': False,
-    'risk_assessment': False,
-    'compliance_verification': False,
-    'decision_making': False,
+    'document_processing': False,  # Auto-approve for routing phase
+    'data_validation': True,   # Enable review for proper UI tracking
+    'risk_assessment': False,  # Auto-approve for routing phase
+    'compliance_verification': True,
+    'decision_making': False,   # Enable review for decision validation
     'account_provisioning': False,
     'communication': False,
-    'market_qualification': True,
+    'market_qualification': False,
     'lead_qualification': False,
     'exception_routing': False,
     'monitoring': False,
@@ -69,12 +69,12 @@ def create_agent_wrapper(agent_func, agent_name):
             else:
                 print(f"[{agent_name.upper()}] Skipping review setup - auto-approved agent")
             
-            # Emit progress update with database save
+            # ALWAYS emit progress update and save to database for ALL agents
             import builtins
             if hasattr(builtins, 'current_progress_callback') and builtins.current_progress_callback:
                 builtins.current_progress_callback(agent_name, 'starting', {})
             
-            # Also save to database directly
+            # ALWAYS save to database directly for ALL agents
             try:
                 from models import MerchantApplication, SessionLocal
                 from datetime import datetime
@@ -110,7 +110,7 @@ def create_agent_wrapper(agent_func, agent_name):
                 # Fallback - use the entire result if agent-specific result not found
                 agent_result = result.__dict__ if hasattr(result, '__dict__') else result
             
-            # Save completed result to database immediately
+            # ALWAYS save completed result to database for ALL agents
             try:
                 from models import MerchantApplication, SessionLocal
                 from datetime import datetime
@@ -128,7 +128,7 @@ def create_agent_wrapper(agent_func, agent_name):
             except Exception as e:
                 print(f"[{agent_name.upper()}] Error saving result: {e}")
             
-            # Emit completed status
+            # ALWAYS emit completed status for ALL agents
             import builtins
             if hasattr(builtins, 'current_progress_callback') and builtins.current_progress_callback:
                 builtins.current_progress_callback(agent_name, 'completed', agent_result)
@@ -385,8 +385,8 @@ def create_standard_workflow():
     
     # Define flow
     workflow.set_entry_point("document_processing")
-    workflow.add_edge("document_processing", "data_validation")
-    workflow.add_edge("data_validation", "risk_assessment")
+    workflow.add_edge("document_processing", "risk_assessment")
+    workflow.add_edge("risk_assessment", "data_validation")
     workflow.add_edge("risk_assessment", "compliance_verification")
     workflow.add_edge("compliance_verification", "decision_making")
     workflow.add_edge("decision_making", "account_provisioning")
@@ -468,13 +468,13 @@ def create_comprehensive_workflow():
     workflow.add_node("optimization", create_agent_wrapper(optimization_agent, "optimization"))
     workflow.add_node("onboarding_support", create_agent_wrapper(onboarding_support_agent, "onboarding_support"))
     
-    # Define document-first 12-agent flow
+    # Define document-first 12-agent flow with risk assessment early
     workflow.set_entry_point("document_processing")
-    workflow.add_edge("document_processing", "market_qualification")
+    workflow.add_edge("document_processing", "risk_assessment")
+    workflow.add_edge("risk_assessment", "market_qualification")
     workflow.add_edge("market_qualification", "lead_qualification")
     workflow.add_edge("lead_qualification", "data_validation")
-    workflow.add_edge("data_validation", "risk_assessment")
-    workflow.add_edge("risk_assessment", "compliance_verification")
+    workflow.add_edge("data_validation", "compliance_verification")
     workflow.add_edge("compliance_verification", "decision_making")
     workflow.add_edge("decision_making", "exception_routing")
     workflow.add_edge("exception_routing", "communication")
@@ -486,11 +486,38 @@ def create_comprehensive_workflow():
     
     return workflow.compile()
 
+def create_routing_workflow():
+    """2-agent routing workflow to determine optimal pattern"""
+    workflow = StateGraph(MerchantOnboardingState)
+    
+    # Load routing agents
+    document_processing_agent = load_agent(
+        os.path.join(base_path, 'agents', 'document-processing', 'src', 'agent.py'),
+        'document_processing_agent'
+    )
+    risk_assessment_agent = load_agent(
+        os.path.join(base_path, 'agents', 'risk-assessment', 'src', 'agent.py'),
+        'risk_assessment_agent'
+    )
+    
+    # Add routing nodes with progress tracking
+    workflow.add_node("document_processing", create_agent_wrapper(document_processing_agent, "document_processing"))
+    workflow.add_node("risk_assessment", create_agent_wrapper(risk_assessment_agent, "risk_assessment"))
+    
+    # Define routing flow: Document Processing → Risk Assessment → END
+    workflow.set_entry_point("document_processing")
+    workflow.add_edge("document_processing", "risk_assessment")
+    workflow.add_edge("risk_assessment", END)
+    
+    return workflow.compile()
+
 def get_workflow_graph(pattern):
     """Get workflow graph for specified pattern"""
     if pattern == "express_workflow":
         return create_express_workflow()
     elif pattern == "standard_workflow":
         return create_standard_workflow()
+    elif pattern == "routing_workflow":
+        return create_routing_workflow()
     else:
         return create_comprehensive_workflow()

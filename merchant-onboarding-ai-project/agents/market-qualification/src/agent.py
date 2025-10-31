@@ -50,14 +50,7 @@ async def market_qualification_agent(state) -> Dict[str, Any]:
         geo_qualified = app_data.get("country", "US") in ["US", "CA", "UK"]
         platform_qualified = True  # Default to qualified
         
-        # Add risk assessment for workflow routing
-        risk_score = 0
-        if app_data.get("annual_revenue", 0) < 100000: risk_score += 25
-        if app_data.get("industry", "").lower() in ["gambling", "crypto", "adult"]: risk_score += 40
-        if app_data.get("country", "US") not in ["US", "CA", "UK"]: risk_score += 15
-        
-        risk_tier = "HIGH" if risk_score > 50 else "MEDIUM" if risk_score > 25 else "LOW"
-        workflow_pattern = "comprehensive" if risk_tier == "HIGH" else "standard" if risk_tier == "MEDIUM" else "express"
+        print(f"[DEBUG] Market Qualification assessment: revenue={app_data.get('annual_revenue', 0)}, country={app_data.get('country', 'US')}")
         
         result = {
             "qualified": all([revenue_qualified, geo_qualified, platform_qualified]),
@@ -65,9 +58,7 @@ async def market_qualification_agent(state) -> Dict[str, Any]:
             "revenue_check": revenue_qualified,
             "geo_check": geo_qualified,
             "platform_check": platform_qualified,
-            "risk_score": risk_score,
-            "risk_tier": risk_tier,
-            "workflow_pattern": workflow_pattern,
+            "reasoning": f"Revenue: {'✓' if revenue_qualified else '✗'}, Geography: {'✓' if geo_qualified else '✗'}, Platform: {'✓' if platform_qualified else '✗'}",
             "error": str(e),
             "processing_time": 0.1
         }

@@ -149,12 +149,8 @@
         let currentAppId = null;
         let pipelineStages = [];
         
-        // Define workflow stages based on pattern
-        const workflowStages = {
-            'express_workflow': ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'],
-            'standard_workflow': ['document_processing', 'data_validation', 'risk_assessment', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
-            'comprehensive_workflow': ['document_processing', 'market_qualification', 'lead_qualification', 'data_validation', 'risk_assessment', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
-        };
+        // Workflow stages will be fetched dynamically from backend
+        let workflowStages = {};
 
         // Get application ID from URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -215,6 +211,47 @@
             const workflowKey = patternMap[data.name] || 'comprehensive_workflow';
             console.log('Initializing pipeline from workflow_pattern_selected:', workflowKey);
             initializePipeline(workflowKey);
+        });
+        
+        socket.on('workflow_selected', (data) => {
+            console.log('*** WORKFLOW SELECTED EVENT ***', data);
+            document.getElementById('workflow-pattern').textContent = data.name;
+            document.getElementById('estimated-time').textContent = data.estimated_time;
+            document.getElementById('expected-reviews').textContent = data.total_agents;
+            
+            // Show workflow selection notification
+            const notification = document.createElement('div');
+            notification.className = 'bg-blue-100 border-l-4 border-blue-500 p-4 mb-4';
+            notification.innerHTML = `
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <span class="text-blue-500 text-xl">🔄</span>
+                    </div>
+                    <div class="ml-3">
+                        <p class="text-sm text-blue-700">
+                            <strong>Workflow Selected:</strong> ${data.name} (Risk: ${data.risk_tier})
+                        </p>
+                        <p class="text-xs text-blue-600 mt-1">
+                            Estimated time: ${data.estimated_time} • ${data.total_agents} agents
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            // Insert notification before progress section
+            const progressSection = document.querySelector('.progress-section');
+            progressSection.parentNode.insertBefore(notification, progressSection);
+            
+            // Remove notification after 10 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 10000);
+            
+            // Re-initialize pipeline with selected workflow
+            console.log('Re-initializing pipeline with selected workflow:', data.pattern);
+            initializePipeline(data.pattern);
         });
 
         socket.on('agent_progress', (data) => {
@@ -282,11 +319,23 @@
             }
         });
 
-        function initializePipeline(workflowPattern = 'comprehensive_workflow') {
+        async function initializePipeline(workflowPattern = 'comprehensive_workflow') {
             console.log('*** INITIALIZING JENKINS PIPELINE ***');
             console.log('Workflow pattern:', workflowPattern);
-            const stages = workflowStages[workflowPattern] || workflowStages['comprehensive_workflow'];
-            console.log('Pipeline stages:', stages);
+            
+            // Fetch stages dynamically from backend
+            let stages = [];
+            try {
+                const response = await fetch(`/api/workflow-stages/${workflowPattern}`);
+                const data = await response.json();
+                stages = data.stages || [];
+                console.log('Fetched stages from backend:', stages);
+            } catch (error) {
+                console.error('Error fetching workflow stages:', error);
+                // Fallback to default
+                stages = ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'];
+            }
+            
             const pipelineContainer = document.querySelector('#pipeline-flow .flex');
             console.log('Pipeline container found:', !!pipelineContainer);
             if (!pipelineContainer) {
@@ -596,7 +645,7 @@
                     progressText.textContent = progressPercentage + '%';
                 }
                 
-                // Load agent history from agent_results
+                // Load agent history from agent_results in workflow order
                 if (app.agent_results && Object.keys(app.agent_results).length > 0) {
                     console.log('Loading agent history from results:', app.agent_results);
                     
@@ -604,32 +653,68 @@
                     const historyContainer = document.getElementById('agent-history');
                     historyContainer.innerHTML = '';
                     
-                    Object.keys(app.agent_results).forEach(agentName => {
-                        const agentResult = app.agent_results[agentName];
-                        console.log(`Adding ${agentName} to history:`, agentResult);
+                    // Get workflow stages to determine correct order
+                    try {
+                        const response = await fetch(`/api/workflow-stages/${app.workflow_pattern}`);
+                        const stageData = await response.json();
+                        const workflowOrder = stageData.stages || [];
                         
-                        // Determine status based on review state
-                        let status = 'completed';
-                        let pipelineStatus = 'completed';
-                        if (app.needs_review && app.review_agent === agentName) {
-                            status = 'review_required';
-                            pipelineStatus = 'review';
-                        }
-                        
-                        // Add to history first
-                        addAgentToHistory({
-                            agent_name: agentName,
-                            status: status,
-                            agent_results: app.agent_results,
-                            application_id: currentAppId
+                        // Sort agents by workflow order
+                        const sortedAgents = Object.keys(app.agent_results).sort((a, b) => {
+                            const indexA = workflowOrder.indexOf(a);
+                            const indexB = workflowOrder.indexOf(b);
+                            // If agent not in workflow order, put at end
+                            if (indexA === -1) return 1;
+                            if (indexB === -1) return -1;
+                            return indexA - indexB;
                         });
                         
-                        // Force update pipeline stage after delay
-                        setTimeout(() => {
-                            updatePipelineStage(agentName, pipelineStatus);
-                            console.log(`Force updated pipeline stage ${agentName} to ${pipelineStatus}`);
-                        }, 50);
-                    });
+                        sortedAgents.forEach(agentName => {
+                            const agentResult = app.agent_results[agentName];
+                            console.log(`Adding ${agentName} to history in workflow order:`, agentResult);
+                            
+                            // Determine status based on review state
+                            let status = 'completed';
+                            let pipelineStatus = 'completed';
+                            if (app.needs_review && app.review_agent === agentName) {
+                                status = 'review_required';
+                                pipelineStatus = 'review';
+                            }
+                            
+                            // Add to history in correct order
+                            addAgentToHistory({
+                                agent_name: agentName,
+                                status: status,
+                                agent_results: app.agent_results,
+                                application_id: currentAppId
+                            });
+                            
+                            // Force update pipeline stage after delay
+                            setTimeout(() => {
+                                updatePipelineStage(agentName, pipelineStatus);
+                                console.log(`Force updated pipeline stage ${agentName} to ${pipelineStatus}`);
+                            }, 50);
+                        });
+                    } catch (error) {
+                        console.error('Error fetching workflow stages for history ordering:', error);
+                        // Fallback to original order if API fails
+                        Object.keys(app.agent_results).forEach(agentName => {
+                            const agentResult = app.agent_results[agentName];
+                            let status = 'completed';
+                            let pipelineStatus = 'completed';
+                            if (app.needs_review && app.review_agent === agentName) {
+                                status = 'review_required';
+                                pipelineStatus = 'review';
+                            }
+                            addAgentToHistory({
+                                agent_name: agentName,
+                                status: status,
+                                agent_results: app.agent_results,
+                                application_id: currentAppId
+                            });
+                            setTimeout(() => updatePipelineStage(agentName, pipelineStatus), 50);
+                        });
+                    }
                 } else {
                     console.log('No agent results found in application data');
                 }

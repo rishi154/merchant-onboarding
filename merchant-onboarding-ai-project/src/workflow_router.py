@@ -3,10 +3,10 @@ from state import MerchantOnboardingState
 
 def determine_workflow_pattern(state: MerchantOnboardingState) -> str:
     """Route to appropriate workflow based on risk assessment"""
-    market_qual = state.market_qualification
+    risk_assessment = state.risk_assessment
     
-    if market_qual and market_qual.get("risk_tier"):
-        risk_tier = market_qual["risk_tier"]
+    if risk_assessment and risk_assessment.get("risk_tier"):
+        risk_tier = risk_assessment["risk_tier"]
         if risk_tier == "LOW":
             return "express_workflow"
         elif risk_tier == "MEDIUM":
@@ -19,6 +19,10 @@ def determine_workflow_pattern(state: MerchantOnboardingState) -> str:
 def get_workflow_steps(pattern: str) -> list:
     """Get workflow steps for UI display"""
     workflows = {
+        "routing_workflow": [
+            {"name": "Document Processing", "description": "Extract and analyze document data"},
+            {"name": "Risk Assessment", "description": "Analyze risk level for workflow routing"}
+        ],
         "express_workflow": [
             {"name": "Document Processing", "description": "Extract and validate document data"},
             {"name": "Risk Assessment", "description": "Quick risk evaluation"},
@@ -57,10 +61,18 @@ def get_workflow_steps(pattern: str) -> list:
 def get_workflow_metadata(pattern: str) -> Dict[str, Any]:
     """Get workflow metadata for UI"""
     metadata = {
+        "routing_workflow": {
+            "name": "Analyzing Documents",
+            "description": "Determining optimal workflow pattern",
+            "estimated_time": "2-5 minutes",
+            "automation_rate": "100%",
+            "risk_level": "Analysis",
+            "color": "blue"
+        },
         "express_workflow": {
             "name": "Express Workflow",
             "description": "Fast-track processing for low-risk merchants",
-            "estimated_time": "5-15 minutes",
+            "estimated_time": "15-30 minutes",
             "automation_rate": "95%",
             "risk_level": "Low",
             "color": "green"
@@ -68,7 +80,7 @@ def get_workflow_metadata(pattern: str) -> Dict[str, Any]:
         "standard_workflow": {
             "name": "Standard Workflow", 
             "description": "Balanced verification for medium-risk merchants",
-            "estimated_time": "30-60 minutes",
+            "estimated_time": "1-2 hours",
             "automation_rate": "75%",
             "risk_level": "Medium",
             "color": "blue"
@@ -76,7 +88,7 @@ def get_workflow_metadata(pattern: str) -> Dict[str, Any]:
         "comprehensive_workflow": {
             "name": "Comprehensive Workflow",
             "description": "Full verification for high-risk merchants",
-            "estimated_time": "2-24 hours", 
+            "estimated_time": "2-4 hours", 
             "automation_rate": "60%",
             "risk_level": "High",
             "color": "red"
