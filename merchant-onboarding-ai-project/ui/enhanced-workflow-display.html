@@ -157,9 +157,91 @@
         currentAppId = urlParams.get('app_id');
         console.log('Current app ID from URL:', currentAppId);
         
+        // Add pipeline CSS immediately
+        addPipelineCSS();
+        
         // Initialize default pipeline immediately for new applications
         console.log('*** INITIALIZING DEFAULT PIPELINE ***');
         initializePipeline('comprehensive_workflow');
+        
+        function addPipelineCSS() {
+            if (!document.getElementById('pipeline-styles')) {
+                const style = document.createElement('style');
+                style.id = 'pipeline-styles';
+                style.textContent = `
+                    .pipeline-stage {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        padding: 6px;
+                        min-width: 90px;
+                        text-align: center;
+                    }
+                    .stage-circle {
+                        width: 36px;
+                        height: 36px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: bold;
+                        font-size: 0.85rem;
+                        margin-bottom: 6px;
+                        transition: all 0.3s;
+                    }
+                    .pipeline-stage.pending .stage-circle {
+                        background: #e5e7eb;
+                        color: #6b7280;
+                        border: 2px solid #d1d5db;
+                    }
+                    .pipeline-stage.running .stage-circle {
+                        background: #fbbf24;
+                        color: white;
+                        border: 2px solid #f59e0b;
+                        animation: pulse 2s infinite;
+                    }
+                    .pipeline-stage.completed .stage-circle {
+                        background: #10b981;
+                        color: white;
+                        border: 2px solid #059669;
+                    }
+                    .pipeline-stage.review .stage-circle {
+                        background: #f97316;
+                        color: white;
+                        border: 2px solid #ea580c;
+                        animation: pulse 2s infinite;
+                    }
+                    .pipeline-stage.failed .stage-circle {
+                        background: #ef4444;
+                        color: white;
+                        border: 2px solid #dc2626;
+                    }
+                    .stage-label {
+                        font-size: 0.7rem;
+                        font-weight: 600;
+                        margin-bottom: 4px;
+                        color: #374151;
+                        line-height: 1.1;
+                    }
+                    .stage-status {
+                        font-size: 0.7rem;
+                        color: #6b7280;
+                    }
+                    .pipeline-arrow {
+                        font-size: 1.2rem;
+                        color: #9ca3af;
+                        margin: 0 6px;
+                        flex-shrink: 0;
+                    }
+                    @keyframes pulse {
+                        0%, 100% { opacity: 1; }
+                        50% { opacity: 0.5; }
+                    }
+                `;
+                document.head.appendChild(style);
+                console.log('Pipeline CSS styles added to head');
+            }
+        }
 
         // Simple review panel functions
         let selectedDecision = null;
@@ -251,7 +333,25 @@
             
             // Re-initialize pipeline with selected workflow
             console.log('Re-initializing pipeline with selected workflow:', data.pattern);
-            initializePipeline(data.pattern);
+            
+            // Store routing results before reinitializing
+            const routingResults = data.routing_results || {};
+            
+            initializePipeline(data.pattern).then(() => {
+                // Update pipeline with routing results after initialization
+                if (Object.keys(routingResults).length > 0) {
+                    console.log('Updating pipeline with routing results:', routingResults);
+                    Object.keys(routingResults).forEach(agentName => {
+                        updatePipelineStage(agentName, 'completed');
+                        addAgentToHistory({
+                            agent_name: agentName,
+                            status: 'completed',
+                            agent_results: {[agentName]: routingResults[agentName]},
+                            application_id: currentAppId
+                        });
+                    });
+                }
+            });
         });
 
         socket.on('agent_progress', (data) => {
@@ -318,8 +418,16 @@
                 }
             }
         });
+        
+        socket.on('force_pipeline_update', (data) => {
+            if (data.application_id === currentAppId) {
+                console.log('Force updating pipeline stage:', data.agent_name, 'to', data.status);
+                updatePipelineStage(data.agent_name, data.status);
+            }
+        });
 
-        async function initializePipeline(workflowPattern = 'comprehensive_workflow') {
+        function initializePipeline(workflowPattern = 'comprehensive_workflow') {
+            return new Promise(async (resolve) => {
             console.log('*** INITIALIZING JENKINS PIPELINE ***');
             console.log('Workflow pattern:', workflowPattern);
             
@@ -364,6 +472,9 @@
             
             console.log('*** JENKINS PIPELINE INITIALIZED ***');
             console.log('Total stages added:', stages.length);
+            
+            resolve(); // Signal that initialization is complete
+        });
             
             // Add CSS for pipeline styling
             if (!document.getElementById('pipeline-styles')) {
@@ -451,9 +562,21 @@
             const stageElement = document.getElementById(`stage-${agentName}`);
             if (!stageElement) {
                 console.log(`Pipeline stage element not found: stage-${agentName}`);
+                // Try to find by data attribute as fallback
+                const fallbackElement = document.querySelector(`[data-stage="${agentName}"]`);
+                if (!fallbackElement) {
+                    console.log(`Fallback pipeline stage element also not found: ${agentName}`);
+                    return;
+                }
+                console.log(`Using fallback element for ${agentName}`);
+                updateStageElement(fallbackElement, agentName, status);
                 return;
             }
             
+            updateStageElement(stageElement, agentName, status);
+        }
+        
+        function updateStageElement(stageElement, agentName, status) {
             console.log(`Updating pipeline stage ${agentName} to ${status}`);
             
             // Remove all status classes
@@ -487,7 +610,10 @@
             }
             
             stageElement.classList.add(statusClass);
-            stageElement.querySelector('.stage-status').textContent = statusText;
+            const statusElement = stageElement.querySelector('.stage-status');
+            if (statusElement) {
+                statusElement.textContent = statusText;
+            }
             console.log(`Pipeline stage ${agentName} updated to ${statusClass} - ${statusText}`);
         }
         
@@ -689,11 +815,16 @@
                                 application_id: currentAppId
                             });
                             
-                            // Force update pipeline stage after delay
+                            // Force update pipeline stage immediately and with delays
+                            updatePipelineStage(agentName, pipelineStatus);
                             setTimeout(() => {
                                 updatePipelineStage(agentName, pipelineStatus);
                                 console.log(`Force updated pipeline stage ${agentName} to ${pipelineStatus}`);
                             }, 50);
+                            setTimeout(() => {
+                                updatePipelineStage(agentName, pipelineStatus);
+                                console.log(`Double-force updated pipeline stage ${agentName} to ${pipelineStatus}`);
+                            }, 200);
                         });
                     } catch (error) {
                         console.error('Error fetching workflow stages for history ordering:', error);
@@ -766,6 +897,16 @@
                         document.getElementById('status').textContent = app.status || 'Unknown';
                     }
                 }
+                
+                // Force pipeline update via API call
+                fetch(`/api/force-pipeline-update/${currentAppId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log('Forced pipeline update for agents:', data.updated_agents);
+                        }
+                    })
+                    .catch(error => console.log('Pipeline update error:', error));
                 
             } catch (error) {
                 console.error('Error loading application data:', error);

@@ -943,6 +943,37 @@ def get_workflow_stages(pattern):
     stages = workflow_stages.get(pattern, workflow_stages['comprehensive_workflow'])
     return jsonify({'stages': stages})
 
+@app.route('/api/force-pipeline-update/<app_id>')
+def force_pipeline_update(app_id):
+    """Force pipeline update for completed agents"""
+    session = Session()
+    try:
+        application = session.query(MerchantApplication).filter_by(id=app_id).first()
+        if not application:
+            return jsonify({'error': 'Application not found'}), 404
+        
+        agent_results = application.agent_results or {}
+        review_agent = application.review_agent
+        needs_review = application.needs_review == 'true'
+        
+        # Emit pipeline updates for all completed agents
+        for agent_name in agent_results.keys():
+            status = 'review' if (needs_review and agent_name == review_agent) else 'completed'
+            socketio.emit('force_pipeline_update', {
+                'application_id': app_id,
+                'agent_name': agent_name,
+                'status': status
+            })
+        
+        return jsonify({
+            'success': True,
+            'updated_agents': list(agent_results.keys()),
+            'review_agent': review_agent,
+            'needs_review': needs_review
+        })
+    finally:
+        session.close()
+
 @app.route('/upload', methods=['POST'])
 def handle_upload():
     try:
@@ -1424,26 +1455,44 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                     'comprehensive_workflow': {'name': 'Comprehensive Workflow', 'estimated_time': '2-4 hours', 'agents': 14}
                 }[selected_pattern]
                 
+
+                
+                print(f"[{app_id}] Emitted workflow_selected event: {workflow_meta['name']}")
+                
+                # Include routing results in workflow_selected event
+                routing_results = {}
+                if result and isinstance(result, dict):
+                    for agent_name in ['document_processing', 'risk_assessment']:
+                        if agent_name in result:
+                            routing_results[agent_name] = result[agent_name]
+                
+                # Update workflow_selected emission to include routing results
                 socketio.emit('workflow_selected', {
                     'application_id': app_id,
                     'pattern': selected_pattern,
                     'name': workflow_meta['name'],
                     'estimated_time': workflow_meta['estimated_time'],
                     'total_agents': workflow_meta['agents'],
-                    'risk_tier': risk_tier
+                    'risk_tier': risk_tier,
+                    'routing_results': routing_results
                 })
                 
-                print(f"[{app_id}] Emitted workflow_selected event: {workflow_meta['name']}")
-                
-                # Continue with selected workflow (reset progress tracking)
+                # Continue with selected workflow (preserve routing results)
                 application_data['workflow_pattern'] = selected_pattern
-                # Reset progress tracking for new workflow
-                if 'agent_progress_tracker' in locals():
-                    agent_progress_tracker.clear()
+                # Preserve routing results - don't reset progress
+                # Keep document_processing and risk_assessment results from routing phase
+                
+                # Skip routing agents in selected workflow by pre-populating state
+                if result and isinstance(result, dict):
+                    application_data['completed_agents'] = {
+                        'document_processing': result.get('document_processing'),
+                        'risk_assessment': result.get('risk_assessment')
+                    }
+                    print(f"[{app_id}] Pre-populated completed agents: {list(application_data['completed_agents'].keys())}")
                 
                 print(f"[{app_id}] Starting selected workflow: {selected_pattern}")
                 # Create new progress callback for selected workflow
-                selected_progress_tracker = {}
+                selected_progress_tracker = agent_progress_tracker.copy()  # Preserve routing progress
                 
                 def selected_progress_callback(agent_name, status, result):
                     print(f"[{app_id}] *** SELECTED WORKFLOW PROGRESS ***", flush=True)
@@ -1584,6 +1633,12 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                 application.progress_percentage = 100
                 application.processing_end_time = datetime.now()
                 
+                # Clear any remaining review status when workflow completes
+                application.needs_review = 'false'
+                application.review_agent = None
+                application.review_data = None
+                print(f"[{app_id}] Cleared review status on workflow completion")
+                
                 # Add workflow pattern info
                 if hasattr(result, 'workflow_pattern'):
                     application.workflow_pattern = result.workflow_pattern
@@ -1622,6 +1677,7 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                 # Set realistic confidence - 0.0 when Document AI unavailable
                 application.extraction_confidence = 0.0
                 session.commit()
+                print(f"[{app_id}] Final database update completed - Status: {final_status}")
         finally:
             session.close()
         

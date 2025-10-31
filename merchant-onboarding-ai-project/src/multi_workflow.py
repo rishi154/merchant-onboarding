@@ -14,10 +14,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'database'))
 AGENT_REVIEW_CONFIG = {
     # Set to True to require human review, False to auto-approve
     'document_processing': False,  # Auto-approve for routing phase
-    'data_validation': True,   # Enable review for proper UI tracking
+    'data_validation': False,   # Auto-approve to prevent multiple reviews
     'risk_assessment': False,  # Auto-approve for routing phase
-    'compliance_verification': True,
-    'decision_making': False,   # Enable review for decision validation
+    'compliance_verification': True,  # Only one agent requires review
+    'decision_making': False,   # Auto-approve
     'account_provisioning': False,
     'communication': False,
     'market_qualification': False,
@@ -49,6 +49,23 @@ def create_agent_wrapper(agent_func, agent_name):
     """Wrapper to add progress tracking and human review to agents"""
     async def wrapped_agent(state):
         try:
+            # Check if agent already completed in routing phase
+            if hasattr(state, 'application_data') and state.application_data:
+                completed_agents = state.application_data.get('completed_agents', {})
+                if agent_name in completed_agents and completed_agents[agent_name]:
+                    print(f"\n[{agent_name.upper()}] *** SKIPPING - ALREADY COMPLETED IN ROUTING PHASE ***", flush=True)
+                    # Return existing result and update state
+                    existing_result = completed_agents[agent_name]
+                    setattr(state, agent_name, existing_result)
+                    
+                    # Emit progress for UI consistency - both starting and completed
+                    import builtins
+                    if hasattr(builtins, 'current_progress_callback') and builtins.current_progress_callback:
+                        builtins.current_progress_callback(agent_name, 'starting', existing_result)
+                        builtins.current_progress_callback(agent_name, 'completed', existing_result)
+                    
+                    return state
+            
             print(f"\n[{agent_name.upper()}] *** STARTING AGENT EXECUTION ***", flush=True)
             print(f"[{agent_name.upper()}] Processing merchant application...", flush=True)
             
@@ -238,6 +255,22 @@ def create_agent_wrapper(agent_func, agent_name):
                         raise e
                     print(f"[{agent_name.upper()}] Error checking final status: {e}")
                 finally:
+                    # Clear review status after approval but keep event for next agent
+                    try:
+                        from models import MerchantApplication, SessionLocal
+                        from datetime import datetime
+                        session = SessionLocal()
+                        app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
+                        if app:
+                            app.needs_review = 'false'
+                            app.review_agent = None
+                            app.updated_at = datetime.now()
+                            session.commit()
+                            print(f"[{agent_name.upper()}] Cleared review status after approval")
+                        session.close()
+                    except Exception as e:
+                        print(f"[{agent_name.upper()}] Error clearing review status: {e}")
+                    
                     # Clean up event after final status check
                     with builtins.review_lock:
                         if current_app_id in builtins.review_events:
@@ -249,6 +282,22 @@ def create_agent_wrapper(agent_func, agent_name):
                 state.needs_review = False
                 state.review_agent = None
                 state.status = ApplicationStatus.PROCESSING
+                
+                # Clear review status in database for auto-approved agents
+                try:
+                    from models import MerchantApplication, SessionLocal
+                    from datetime import datetime
+                    session = SessionLocal()
+                    app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
+                    if app:
+                        app.needs_review = 'false'
+                        app.review_agent = None
+                        app.updated_at = datetime.now()
+                        session.commit()
+                        print(f"[{agent_name.upper()}] Cleared review status in database")
+                    session.close()
+                except Exception as e:
+                    print(f"[{agent_name.upper()}] Error clearing review status: {e}")
             
             return result
             
@@ -390,11 +439,11 @@ def create_standard_workflow():
     workflow.add_node("account_provisioning", create_agent_wrapper(account_provisioning_agent, "account_provisioning"))
     workflow.add_node("communication", create_agent_wrapper(communication_agent, "communication"))
     
-    # Define flow
+    # Define flow - sequential execution
     workflow.set_entry_point("document_processing")
     workflow.add_edge("document_processing", "risk_assessment")
     workflow.add_edge("risk_assessment", "data_validation")
-    workflow.add_edge("risk_assessment", "compliance_verification")
+    workflow.add_edge("data_validation", "compliance_verification")
     workflow.add_edge("compliance_verification", "decision_making")
     workflow.add_edge("decision_making", "account_provisioning")
     workflow.add_edge("account_provisioning", "communication")

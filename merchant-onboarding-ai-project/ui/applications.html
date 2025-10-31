@@ -334,6 +334,7 @@
                         <div class="app-details">
                             <div><strong>Business:</strong> ${app.business_name}</div>
                             <div><strong>Documents:</strong> ${app.documents_processed || 0} files</div>
+                            <div><strong>Executed Agents:</strong> ${app.agent_results ? Object.keys(app.agent_results).length : 0} / ${getWorkflowAgentCount(app.agent_results)}</div>
                             <div><strong>Current Agent:</strong> ${app.current_agent || 'N/A'}</div>
                             <div><strong>Progress:</strong> ${app.progress_percentage || 0}%</div>
                             <div><strong>Confidence:</strong> ${app.extraction_confidence ? (app.extraction_confidence * 100).toFixed(1) + '%' : 'N/A'}</div>
@@ -422,6 +423,15 @@
                 });
         }
 
+        function getWorkflowAgentCount(agentResults) {
+            if (!agentResults) return 13; // Default comprehensive workflow
+            
+            const resultKeys = Object.keys(agentResults);
+            if (resultKeys.length <= 4) return 4;  // Express
+            if (resultKeys.length <= 7) return 7;  // Standard
+            return 13; // Comprehensive
+        }
+        
         function generateAgentStatusIndicators(agentResults) {
             if (!agentResults) return '';
             
