@@ -172,12 +172,26 @@ def get_progress(app_id):
         if not application:
             return jsonify({'error': 'Application not found'}), 404
         
+        # Extract business name from various sources
+        business_name = application.business_name
+        if business_name == 'Processing...' or not business_name:
+            if application.extracted_data and 'business_name' in application.extracted_data:
+                business_name = application.extracted_data['business_name']
+            elif application.agent_results:
+                for agent_name, result in application.agent_results.items():
+                    if isinstance(result, dict) and 'extracted_data' in result and 'business_name' in result['extracted_data']:
+                        business_name = result['extracted_data']['business_name']
+                        break
+        
         return jsonify({
             'application_id': application.id,
+            'business_name': business_name,
             'status': application.status,
             'current_agent': application.current_agent,
             'progress_percentage': application.progress_percentage,
             'agent_results': application.agent_results or {},
+            'needs_review': application.needs_review == 'true',
+            'review_agent': application.review_agent,
             'error_message': getattr(application, 'error_message', None)
         })
     finally:
@@ -327,6 +341,78 @@ def get_applications():
             'current_reviewer': app.current_reviewer,
             'workflow_pattern': app.workflow_pattern
         } for app in applications])
+    finally:
+        session.close()
+
+@app.route('/api/application-state/<app_id>')
+def get_application_state(app_id):
+    """Get complete application state for processing page"""
+    session = Session()
+    try:
+        application = session.query(MerchantApplication).filter_by(id=app_id).first()
+        if not application:
+            return jsonify({'error': 'Application not found'}), 404
+        
+        # Get workflow pattern info
+        workflow_pattern = application.workflow_pattern or 'comprehensive_workflow'
+        workflow_info = {
+            'comprehensive_workflow': {
+                'name': 'Comprehensive Workflow',
+                'estimated_time': '2-4 hours',
+                'expected_reviews': 13
+            },
+            'standard_workflow': {
+                'name': 'Standard Workflow', 
+                'estimated_time': '1-2 hours',
+                'expected_reviews': 7
+            },
+            'express_workflow': {
+                'name': 'Express Workflow',
+                'estimated_time': '30-60 minutes', 
+                'expected_reviews': 4
+            }
+        }.get(workflow_pattern, {
+            'name': 'Comprehensive Workflow',
+            'estimated_time': '2-4 hours',
+            'expected_reviews': 13
+        })
+        
+        # Extract business name from various sources
+        business_name = application.business_name
+        if business_name == 'Processing...' or not business_name:
+            # Try to get from extracted data
+            if application.extracted_data and 'business_name' in application.extracted_data:
+                business_name = application.extracted_data['business_name']
+            # Try to get from agent results
+            elif application.agent_results:
+                for agent_name, result in application.agent_results.items():
+                    if isinstance(result, dict):
+                        if 'extracted_data' in result and 'business_name' in result['extracted_data']:
+                            business_name = result['extracted_data']['business_name']
+                            break
+                        elif 'processed_documents' in result:
+                            for doc in result['processed_documents']:
+                                if 'extracted_data' in doc and 'business_name' in doc['extracted_data']:
+                                    business_name = doc['extracted_data']['business_name']
+                                    break
+                            if business_name != 'Processing...':
+                                break
+        
+        return jsonify({
+            'application_id': application.id,
+            'business_name': business_name,
+            'status': application.status,
+            'current_agent': application.current_agent,
+            'progress_percentage': application.progress_percentage or 0,
+            'agent_results': application.agent_results or {},
+            'needs_review': application.needs_review == 'true',
+            'review_agent': application.review_agent,
+            'review_data': application.review_data,
+            'workflow_pattern': workflow_pattern,
+            'workflow_info': workflow_info,
+            'created_at': application.created_at.isoformat(),
+            'updated_at': application.updated_at.isoformat()
+        })
     finally:
         session.close()
 
@@ -738,6 +824,58 @@ def fix_agent_results(app_id):
     finally:
         session.close()
 
+@app.route('/api/applications/<app_id>/review-decision', methods=['POST'])
+def submit_review_decision(app_id):
+    """Submit human review decision"""
+    session = Session()
+    try:
+        application = session.query(MerchantApplication).filter_by(id=app_id).first()
+        if not application:
+            return jsonify({'error': 'Application not found'}), 404
+        
+        data = request.get_json()
+        decision = data.get('decision')  # 'approved' or 'rejected'
+        notes = data.get('notes', '')
+        reviewer = data.get('reviewer', 'system')
+        
+        if decision == 'approved':
+            # Clear review flags and continue workflow
+            application.needs_review = 'false'
+            application.current_reviewer = None
+            application.status = 'processing'
+            session.commit()
+            
+            # Trigger workflow resume
+            import builtins
+            if hasattr(builtins, 'review_events') and app_id in builtins.review_events:
+                builtins.review_events[app_id].set()
+            
+            return jsonify({
+                'success': True,
+                'decision': 'approved',
+                'message': 'Application approved and workflow resumed'
+            })
+            
+        elif decision == 'rejected':
+            # Mark as declined
+            application.status = 'declined'
+            application.needs_review = 'false'
+            application.processing_end_time = datetime.now()
+            session.commit()
+            
+            return jsonify({
+                'success': True,
+                'decision': 'rejected',
+                'message': 'Application rejected and workflow stopped'
+            })
+        else:
+            return jsonify({'error': 'Invalid decision'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
 @app.route('/api/debug/<app_id>')
 def debug_application(app_id):
     """Debug application data storage"""
@@ -927,6 +1065,7 @@ def process_documents():
                 progress_percentage=0,
                 documents_processed=len(documents),
                 processing_start_time=datetime.now(),
+                workflow_pattern=workflow_pattern,
                 application_data={
                     'documents': [doc['filename'] for doc in documents],
                     'jurisdiction': jurisdiction,
@@ -974,7 +1113,8 @@ def process_documents():
             'risk_level': workflow_meta['risk_level'],
             'routing_reason': routing_reason,
             'complexity_score': routing_analysis['complexity_score'],
-            'document_types': routing_analysis['document_types']
+            'document_types': routing_analysis['document_types'],
+            'expected_reviews': 13
         })
         print(f"[{app_id}] Workflow pattern emitted: {routing_reason}", flush=True)
         
@@ -1070,10 +1210,24 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
             if status == 'completed':
                 agent_progress_tracker[agent_name] = result or {}
             
-            # Calculate progress based on completed agents
-            total_agents = 4 if workflow_pattern == 'express_workflow' else 7 if workflow_pattern == 'standard_workflow' else 14
+            # Get workflow pattern from database to calculate correct progress
+            session_temp = Session()
+            try:
+                app_temp = session_temp.query(MerchantApplication).filter_by(id=app_id).first()
+                db_workflow_pattern = app_temp.workflow_pattern if app_temp else workflow_pattern
+            except:
+                db_workflow_pattern = workflow_pattern
+            finally:
+                session_temp.close()
+            
+            # Calculate progress based on correct workflow
+            total_agents = 4 if db_workflow_pattern == 'express_workflow' else 7 if db_workflow_pattern == 'standard_workflow' else 14
             completed_count = len(agent_progress_tracker)
             progress = min(100, int((completed_count / total_agents) * 100))
+            
+            # Force 100% when all agents are done
+            if completed_count >= total_agents:
+                progress = 100
             
             print(f"[{app_id}] Progress: {completed_count}/{total_agents} = {progress}%", flush=True)
             
@@ -1095,15 +1249,30 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                         application.progress_percentage = progress
                         application.updated_at = datetime.now()
                         
-                        # Store agent results immediately when completed
-                        if status == 'completed' and result:
-                            print(f"[{app_id}] Processing completed result for {agent_name}")
+                        # Store agent results immediately when completed or review required
+                        if status in ['completed', 'review_required'] and result:
+                            print(f"[{app_id}] Processing {status} result for {agent_name}")
                             current_results = application.agent_results or {}
                             print(f"[{app_id}] Current results keys: {list(current_results.keys()) if current_results else 'None'}")
                             current_results[agent_name] = result
                             application.agent_results = current_results
                             print(f"[{app_id}] Updated agent_results with {agent_name}")
                             print(f"[{app_id}] New results keys: {list(current_results.keys())}")
+                            
+                            # Extract business name from document processing results
+                            if agent_name == 'document_processing' and result:
+                                extracted_business_name = None
+                                if 'processed_documents' in result:
+                                    for doc in result['processed_documents']:
+                                        if 'extracted_data' in doc and 'business_name' in doc['extracted_data']:
+                                            extracted_business_name = doc['extracted_data']['business_name']
+                                            break
+                                elif 'extracted_data' in result and 'business_name' in result['extracted_data']:
+                                    extracted_business_name = result['extracted_data']['business_name']
+                                
+                                if extracted_business_name and extracted_business_name != application.business_name:
+                                    print(f"[{app_id}] Updating business name from '{application.business_name}' to '{extracted_business_name}'")
+                                    application.business_name = extracted_business_name
                         
                         # Also store when review is required
                         if status == 'review_required' and result:
@@ -1113,6 +1282,7 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                             application.agent_results = current_results
                             application.needs_review = 'true'
                             application.review_agent = agent_name
+                            application.review_data = result
                             print(f"[{app_id}] Saved {agent_name} result for review")
                             print(f"[{app_id}] Result data: {type(result)} - {len(str(result))} chars")
                         
@@ -1150,16 +1320,41 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                         except:
                             pass
             
-            # Emit progress
-            socketio.emit('agent_progress', {
+            # Emit progress with business name update
+            emit_data = {
                 'application_id': app_id,
                 'agent_name': agent_name,
                 'status': status,
                 'progress_percentage': progress,
                 'current_agent': agent_name,
                 'agent_results': {agent_name: result} if result else {}
-            })
+            }
+            
+            # Add business name update for document processing
+            if agent_name == 'document_processing' and status == 'completed' and result:
+                extracted_business_name = None
+                if 'processed_documents' in result:
+                    for doc in result['processed_documents']:
+                        if 'extracted_data' in doc and 'business_name' in doc['extracted_data']:
+                            extracted_business_name = doc['extracted_data']['business_name']
+                            break
+                elif 'extracted_data' in result and 'business_name' in result['extracted_data']:
+                    extracted_business_name = result['extracted_data']['business_name']
+                
+                if extracted_business_name:
+                    emit_data['business_name'] = extracted_business_name
+            
+            socketio.emit('agent_progress', emit_data)
             print(f"[{app_id}] Emitted progress: {progress}%", flush=True)
+            
+            # Emit review_required event for UI consistency
+            if status == 'review_required':
+                socketio.emit('review_required', {
+                    'application_id': app_id,
+                    'agent_name': agent_name,
+                    'review_data': result
+                })
+                print(f"[{app_id}] Emitted review_required for {agent_name}", flush=True)
         
         # Import the real 14-agent workflow
         import sys

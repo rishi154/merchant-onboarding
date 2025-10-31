@@ -161,8 +161,8 @@
         currentAppId = urlParams.get('app_id');
         console.log('Current app ID from URL:', currentAppId);
         
-        // ALWAYS initialize pipeline on page load
-        console.log('*** FORCE INITIALIZING PIPELINE ON PAGE LOAD ***');
+        // Initialize default pipeline immediately for new applications
+        console.log('*** INITIALIZING DEFAULT PIPELINE ***');
         initializePipeline('comprehensive_workflow');
 
         // Simple review panel functions
@@ -181,9 +181,12 @@
         if (currentAppId) {
             console.log('Loading application data for:', currentAppId);
             document.getElementById('application-id').textContent = currentAppId;
-            loadApplicationData();
-            // Always initialize pipeline for existing applications
-            initializePipeline('comprehensive_workflow');
+            
+            // Load application data first, then initialize pipeline based on actual workflow
+            loadApplicationData().then(() => {
+                // Pipeline will be initialized with correct workflow pattern from loadApplicationData
+                console.log('Application data loaded, pipeline should be initialized');
+            });
         } else {
             console.log('No app_id in URL, checking for uploaded documents');
             // No app_id in URL, check for uploaded documents and start processing
@@ -201,6 +204,7 @@
         socket.on('workflow_pattern_selected', (data) => {
             document.getElementById('workflow-pattern').textContent = data.name;
             document.getElementById('estimated-time').textContent = data.estimated_time;
+            document.getElementById('expected-reviews').textContent = data.expected_reviews || '13';
             
             // Initialize pipeline based on workflow pattern
             const patternMap = {
@@ -209,6 +213,7 @@
                 'Comprehensive Workflow': 'comprehensive_workflow'
             };
             const workflowKey = patternMap[data.name] || 'comprehensive_workflow';
+            console.log('Initializing pipeline from workflow_pattern_selected:', workflowKey);
             initializePipeline(workflowKey);
         });
 
@@ -217,6 +222,12 @@
             if (data.application_id === currentAppId) {
                 updateProgress(data);
                 addAgentToHistory(data);
+                
+                // Update business name if provided
+                if (data.business_name) {
+                    console.log('Updating business name to:', data.business_name);
+                    document.getElementById('business-name').textContent = data.business_name;
+                }
                 
                 // Check if this is a review_required status
                 if (data.status === 'review_required') {
@@ -227,6 +238,15 @@
                         agentResult = agentResult[data.agent_name];
                     }
                     showReviewPanel(data.agent_name, agentResult);
+                    
+                    // Emit review_required event for consistency
+                    setTimeout(() => {
+                        socket.emit('review_required', {
+                            application_id: currentAppId,
+                            agent_name: data.agent_name,
+                            review_data: agentResult
+                        });
+                    }, 100);
                 }
             }
         });
@@ -380,7 +400,12 @@
         
         function updatePipelineStage(agentName, status) {
             const stageElement = document.getElementById(`stage-${agentName}`);
-            if (!stageElement) return;
+            if (!stageElement) {
+                console.log(`Pipeline stage element not found: stage-${agentName}`);
+                return;
+            }
+            
+            console.log(`Updating pipeline stage ${agentName} to ${status}`);
             
             // Remove all status classes
             stageElement.classList.remove('pending', 'running', 'completed', 'review', 'failed');
@@ -399,6 +424,7 @@
                     statusText = '✅ Completed';
                     break;
                 case 'review_required':
+                case 'review':
                     statusClass = 'review';
                     statusText = '👤 Review';
                     break;
@@ -413,6 +439,7 @@
             
             stageElement.classList.add(statusClass);
             stageElement.querySelector('.stage-status').textContent = statusText;
+            console.log(`Pipeline stage ${agentName} updated to ${statusClass} - ${statusText}`);
         }
         
         function updateProgress(data) {
@@ -450,7 +477,7 @@
             
             // Check if this agent already has an entry and update it instead of adding new
             const existingEntry = document.querySelector(`[data-agent="${data.agent_name}"]`);
-            if (existingEntry && data.status !== 'starting') {
+            if (existingEntry) {
                 // Update existing entry
                 updateAgentEntry(existingEntry, data);
                 return;
@@ -529,28 +556,44 @@
 
         async function loadApplicationData() {
             try {
-                const response = await fetch(`/api/applications`);
-                const applications = await response.json();
-                const app = applications.find(a => a.application_id === currentAppId || a.id === currentAppId);
+                console.log('Loading application state for:', currentAppId);
+                const response = await fetch(`/api/application-state/${currentAppId}`);
+                const app = await response.json();
                 
-                if (!app) {
+                if (app.error) {
                     console.error('Application not found:', currentAppId);
                     return;
                 }
                 
-                console.log('Loaded application data:', app);
+                console.log('Loaded application state:', app);
                 
                 // Update basic info
-                document.getElementById('business-name').textContent = app.business_name || 'Unknown Business';
+                document.getElementById('business-name').textContent = app.business_name || 'Processing...';
                 document.getElementById('current-agent').textContent = app.current_agent || 'N/A';
-                document.getElementById('status').textContent = app.status || 'Unknown';
                 
-                // Update progress
+                // Update workflow information and initialize pipeline
+                if (app.workflow_info) {
+                    document.getElementById('workflow-pattern').textContent = app.workflow_info.name;
+                    document.getElementById('estimated-time').textContent = app.workflow_info.estimated_time;
+                    document.getElementById('expected-reviews').textContent = app.workflow_info.expected_reviews;
+                    
+                    // Initialize pipeline with correct workflow pattern
+                    console.log('Initializing pipeline with pattern:', app.workflow_pattern);
+                    initializePipeline(app.workflow_pattern);
+                }
+                
+                // Update progress - calculate from agent results if not set
+                let progressPercentage = app.progress_percentage || 0;
+                if (progressPercentage === 0 && app.agent_results) {
+                    const completedAgents = Object.keys(app.agent_results).length;
+                    progressPercentage = Math.min(100, Math.round((completedAgents / 14) * 100));
+                }
+                
                 const progressBar = document.getElementById('progress-bar');
                 const progressText = document.getElementById('progress-percentage');
                 if (progressBar && progressText) {
-                    progressBar.style.width = (app.progress_percentage || 0) + '%';
-                    progressText.textContent = (app.progress_percentage || 0) + '%';
+                    progressBar.style.width = progressPercentage + '%';
+                    progressText.textContent = progressPercentage + '%';
                 }
                 
                 // Load agent history from agent_results
@@ -565,35 +608,77 @@
                         const agentResult = app.agent_results[agentName];
                         console.log(`Adding ${agentName} to history:`, agentResult);
                         
-                        // Update pipeline stage to completed
-                        updatePipelineStage(agentName, 'completed');
+                        // Determine status based on review state
+                        let status = 'completed';
+                        let pipelineStatus = 'completed';
+                        if (app.needs_review && app.review_agent === agentName) {
+                            status = 'review_required';
+                            pipelineStatus = 'review';
+                        }
                         
-                        // Add to history with proper structure
+                        // Add to history first
                         addAgentToHistory({
                             agent_name: agentName,
-                            status: 'completed',
+                            status: status,
                             agent_results: app.agent_results,
                             application_id: currentAppId
                         });
+                        
+                        // Force update pipeline stage after delay
+                        setTimeout(() => {
+                            updatePipelineStage(agentName, pipelineStatus);
+                            console.log(`Force updated pipeline stage ${agentName} to ${pipelineStatus}`);
+                        }, 50);
                     });
                 } else {
                     console.log('No agent results found in application data');
                 }
                 
+                // Force update for review agent - multiple attempts
+                if (app.needs_review && app.review_agent) {
+                    console.log(`Force updating review agent: ${app.review_agent}`);
+                    
+                    // Immediate update
+                    updatePipelineStage(app.review_agent, 'review');
+                    
+                    // Delayed updates to ensure it sticks
+                    setTimeout(() => updatePipelineStage(app.review_agent, 'review'), 100);
+                    setTimeout(() => updatePipelineStage(app.review_agent, 'review'), 500);
+                    
+                    if (!app.agent_results || !app.agent_results[app.review_agent]) {
+                        addAgentToHistory({
+                            agent_name: app.review_agent,
+                            status: 'review_required',
+                            agent_results: {[app.review_agent]: app.review_data || {}},
+                            application_id: currentAppId
+                        });
+                    }
+                }
+                
                 // Check if needs review
-                if (app.needs_review === 'true' || app.needs_review === true) {
+                if (app.needs_review) {
                     console.log('Application needs review for agent:', app.review_agent);
                     document.getElementById('status').textContent = '⏸️ PENDING HUMAN REVIEW';
                     document.getElementById('current-agent').textContent = app.review_agent || 'Unknown Agent';
                     
-                    // Update pipeline stage to review
+                    // Force update pipeline stage to review
                     if (app.review_agent) {
+                        console.log(`Force updating ${app.review_agent} pipeline stage to review`);
                         updatePipelineStage(app.review_agent, 'review');
                     }
                     
                     // Show review panel if review data exists
                     if (app.review_data) {
                         showReviewPanel(app.review_agent, app.review_data);
+                    }
+                } else {
+                    // Set appropriate status based on application state
+                    if (app.status === 'processing') {
+                        document.getElementById('status').textContent = 'Processing...';
+                    } else if (app.status === 'completed') {
+                        document.getElementById('status').textContent = '✅ Completed';
+                    } else {
+                        document.getElementById('status').textContent = app.status || 'Unknown';
                     }
                 }
                 

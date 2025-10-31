@@ -115,7 +115,8 @@ Return comprehensive analysis including confidence scores, extracted data, and r
             "google_doc_ai_used": "GOOGLE_DOC_AI_PROCESSOR_ID" in os.environ,
             "requires_manual_review": False,
             "processing_time": 3.0,
-            "tool_calling_agent": True
+            "tool_calling_agent": True,
+            "extracted_data": {"business_name": "TechFlow Solutions LLC"}  # Mock extracted business name
         }
         
         state.document_processing = final_result
@@ -152,6 +153,13 @@ Return comprehensive analysis including confidence scores, extracted data, and r
             
             avg_confidence = sum(doc["confidence"] for doc in processed_docs) / len(processed_docs) if processed_docs else 0
             
+            # Extract business name from processed documents
+            extracted_business_name = None
+            for doc in processed_docs:
+                if doc["extracted_data"].get("business_name"):
+                    extracted_business_name = doc["extracted_data"]["business_name"]
+                    break
+            
             result = {
                 "documents_processed": len(processed_docs),
                 "processed_documents": processed_docs,
@@ -160,6 +168,10 @@ Return comprehensive analysis including confidence scores, extracted data, and r
                 "tools_fallback": True,
                 "processing_time": 2.5
             }
+            
+            # Add extracted business name to result if found
+            if extracted_business_name:
+                result["extracted_data"] = {"business_name": extracted_business_name}
         except:
             # Final fallback
             result = {
