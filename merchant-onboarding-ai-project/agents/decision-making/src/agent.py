@@ -44,7 +44,8 @@ async def decision_making_agent(state) -> Dict[str, Any]:
                 "market_qualification": state.market_qualification,
                 "document_processing": state.document_processing,
                 "risk_assessment": state.risk_assessment,
-                "data_validation": state.data_validation
+                "data_validation": state.data_validation,
+                "underwriting": state.underwriting
             })
         })
         
@@ -64,19 +65,32 @@ async def decision_making_agent(state) -> Dict[str, Any]:
         return {"decision": result}
         
     except Exception as e:
-        # Fallback decision logic
+        # Fallback decision logic using underwriting results
         qualified = state.market_qualification.get("qualified", False) if state.market_qualification else False
         risk_score = state.risk_assessment.get("risk_score", 100) if state.risk_assessment else 100
         
-        if qualified and risk_score <= 50:
-            decision = "APPROVED"
-            credit_limit = 25000
-        elif not qualified or risk_score >= 80:
-            decision = "DECLINED"
-            credit_limit = 0
+        # Use underwriting results if available
+        if state.underwriting:
+            underwriting_decision = state.underwriting.get("underwriting_decision", "DECLINE")
+            credit_limit = state.underwriting.get("credit_limit", 0)
+            
+            if underwriting_decision == "APPROVE":
+                decision = "APPROVED"
+            elif underwriting_decision == "CONDITIONAL":
+                decision = "MANUAL_REVIEW"
+            else:
+                decision = "DECLINED"
         else:
-            decision = "MANUAL_REVIEW"
-            credit_limit = 0
+            # Original fallback logic
+            if qualified and risk_score <= 50:
+                decision = "APPROVED"
+                credit_limit = 25000
+            elif not qualified or risk_score >= 80:
+                decision = "DECLINED"
+                credit_limit = 0
+            else:
+                decision = "MANUAL_REVIEW"
+                credit_limit = 0
         
         result = {
             "decision": decision,

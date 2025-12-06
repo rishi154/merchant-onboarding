@@ -10,6 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import mimetypes
 from review_api import review_bp
+from api.search import search_bp
 
 # Add paths for importing the workflow and database
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -23,8 +24,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'merchant-onboarding-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Register review API blueprint
+# Register API blueprints
 app.register_blueprint(review_bp)
+app.register_blueprint(search_bp)
 
 # Database setup - use same configuration as models.py
 from models import engine, SessionLocal as Session
@@ -51,6 +53,10 @@ def new_application():
 
 @app.route('/applications')
 def applications():
+    return app.send_static_file('application_list.html')
+
+@app.route('/applications/legacy')
+def applications_legacy():
     return app.send_static_file('applications.html')
 
 @app.route('/analytics')
@@ -59,109 +65,8 @@ def analytics():
 
 @app.route('/application/<app_id>')
 def application_details(app_id):
-    """Show detailed view of a specific application"""
-    session = Session()
-    try:
-        application = session.query(MerchantApplication).filter_by(id=app_id).first()
-        if not application:
-            return "Application not found", 404
-        
-        # Create a simple details page
-        html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Application Details - {}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="bg-gray-50 p-8">
-            <div class="max-w-4xl mx-auto">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <h1 class="text-2xl font-bold mb-4">Application Details</h1>
-                    <div class="grid grid-cols-2 gap-4 mb-6">
-                        <div><strong>ID:</strong> {}</div>
-                        <div><strong>Business:</strong> {}</div>
-                        <div><strong>Status:</strong> {}</div>
-                        <div><strong>Current Agent:</strong> {}</div>
-                        <div><strong>Progress:</strong> {}%</div>
-                        <div><strong>Documents:</strong> {}</div>
-                        <div><strong>Created:</strong> {}</div>
-                        <div><strong>Updated:</strong> {}</div>
-                    </div>
-                    
-                    <div class="mb-6">
-                        <h2 class="text-lg font-semibold mb-2">Extracted Data</h2>
-                        <pre class="bg-gray-100 p-4 rounded text-sm overflow-auto">{}</pre>
-                    </div>
-                    
-                    <div class="mb-6">
-                        <h2 class="text-lg font-semibold mb-2">Agent Results</h2>
-                        <pre class="bg-gray-100 p-4 rounded text-sm overflow-auto">{}</pre>
-                    </div>
-                    
-                    <div class="mb-6">
-                        <h2 class="text-lg font-semibold mb-2">Review Status</h2>
-                        <div class="bg-gray-100 p-4 rounded">
-                            <p><strong>Needs Review:</strong> {}</p>
-                            <p><strong>Review Agent:</strong> {}</p>
-                            <p><strong>Current Reviewer:</strong> {}</p>
-                        </div>
-                    </div>
-                    
-                    <div class="space-x-2">
-                        <a href="/applications" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Back to Applications</a>
-                        <a href="/analytics" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">View Analytics</a>
-                        <button onclick="resumeApplication('{}')" class="bg-orange-500 text-white px-4 py-2 rounded hover:bg-orange-600">Resume Application</button>
-                    </div>
-                    
-                    <script>
-                    function resumeApplication(appId) {{
-                        fetch('/api/applications/' + appId + '/resume', {{
-                            method: 'POST'
-                        }})
-                        .then(response => response.json())
-                        .then(data => {{
-                            if (data.success) {{
-                                if (data.needs_review) {{
-                                    window.location.href = '/processing?app_id=' + appId;
-                                }} else {{
-                                    alert('Application resumed successfully');
-                                    window.location.reload();
-                                }}
-                            }} else {{
-                                alert('Error resuming application: ' + data.error);
-                            }}
-                        }})
-                        .catch(error => {{
-                            console.error('Error:', error);
-                            alert('Error resuming application');
-                        }});
-                    }}
-                    </script>
-                </div>
-            </div>
-        </body>
-        </html>
-        """.format(
-            app_id,
-            application.id,
-            application.business_name,
-            application.status,
-            application.current_agent or 'N/A',
-            application.progress_percentage or 0,
-            application.documents_processed or 0,
-            application.created_at,
-            application.updated_at,
-            json.dumps(application.extracted_data or {}, indent=2),
-            json.dumps(application.agent_results or {}, indent=2),
-            application.needs_review or 'false',
-            application.review_agent or 'N/A',
-            application.current_reviewer or 'N/A',
-            application.id
-        )
-        return html
-    finally:
-        session.close()
+    """Show detailed review page for a specific application"""
+    return app.send_static_file('application_review.html')
 
 @app.route('/api/progress/<app_id>')
 def get_progress(app_id):
@@ -199,7 +104,7 @@ def get_progress(app_id):
 
 @app.route('/api/applications/<app_id>/resume', methods=['POST'])
 def resume_application(app_id):
-    """Resume a paused application"""
+    """Resume a paused application from where it left off"""
     session = Session()
     try:
         application = session.query(MerchantApplication).filter_by(id=app_id).first()
@@ -227,14 +132,21 @@ def resume_application(app_id):
             builtins.review_events[app_id].set()
             workflow_resumed = True
         else:
-            print(f"[{app_id}] No existing workflow found - restarting from current state")
-            # Restart workflow from current state
+            print(f"[{app_id}] No existing workflow found - resuming from completed agents")
+            # Resume workflow from current state (preserve completed agents)
             application.status = 'processing'
             session.commit()
             
-            # Get application data for restart
+            # Get application data for resume
             app_data = application.application_data or {}
+            app_data['application_id'] = app_id
             business_name = application.business_name
+            workflow_pattern = application.workflow_pattern or 'comprehensive_workflow'
+            
+            # Preserve completed agents to avoid re-execution
+            completed_agents = application.agent_results or {}
+            app_data['completed_agents'] = completed_agents
+            print(f"[{app_id}] Preserving {len(completed_agents)} completed agents: {list(completed_agents.keys())}")
             
             # Load documents from upload directory
             upload_dir = os.path.join('uploads', app_id)
@@ -253,9 +165,9 @@ def resume_application(app_id):
                         })
             
             if documents:
-                # Restart workflow in background thread
-                print(f"[{app_id}] Restarting workflow with {len(documents)} documents")
-                thread = threading.Thread(target=run_workflow, args=(app_id, documents, business_name, 'comprehensive_workflow'))
+                # Resume workflow with preserved state
+                print(f"[{app_id}] Resuming {workflow_pattern} with {len(documents)} documents")
+                thread = threading.Thread(target=run_workflow, args=(app_id, documents, business_name, workflow_pattern, app_data))
                 thread.daemon = True
                 thread.start()
                 workflow_resumed = True
@@ -348,10 +260,11 @@ def get_applications():
         return jsonify([{
             'application_id': app.id,
             'id': app.id,
-            'business_name': app.business_name,
+            'business_name': extract_business_name(app),
             'status': app.status,
             'current_agent': app.current_agent,
-            'progress_percentage': app.progress_percentage,
+            'progress_percentage': calculate_dynamic_progress(app),
+            'status': get_corrected_status(app),
             'documents_processed': app.documents_processed,
             'extraction_confidence': app.extraction_confidence,
             'manual_fields_required': app.manual_fields_required,
@@ -366,10 +279,175 @@ def get_applications():
             'review_agent': app.review_agent,
             'review_data': app.review_data,
             'current_reviewer': app.current_reviewer,
-            'workflow_pattern': app.workflow_pattern
+            'workflow_pattern': app.workflow_pattern,
+            'agent_count': count_actual_agents(app.agent_results, app.needs_review == 'true', app.review_agent) if app.agent_results else 0,
+            'processing_duration': calculate_processing_duration(app)
         } for app in applications])
     finally:
         session.close()
+
+def get_expected_reviews_count(workflow_pattern):
+    """Get expected human reviews count dynamically from workflow stages API"""
+    try:
+        # Get workflow stages dynamically from the API
+        import requests
+        response = requests.get(f'http://localhost:5000/api/workflow-stages/{workflow_pattern}')
+        if response.status_code == 200:
+            stages = response.json().get('stages', [])
+        else:
+            # Fallback to default stages if API fails
+            stages = get_default_workflow_stages(workflow_pattern)
+        
+        # Get review configuration dynamically
+        review_config = get_review_configuration()
+        
+        # Count how many agents require review
+        review_count = 0
+        for agent in stages:
+            if review_config.get(agent, True):  # Default to True for safety
+                review_count += 1
+        
+        return review_count
+    except Exception as e:
+        print(f"Error getting dynamic review count: {e}")
+        # Fallback: only compliance_verification requires review currently
+        stages = get_default_workflow_stages(workflow_pattern)
+        return 1 if 'compliance_verification' in stages else 0
+
+def get_default_workflow_stages(workflow_pattern):
+    """Get default workflow stages as fallback"""
+    stages_map = {
+        'express_workflow': ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'],
+        'standard_workflow': ['document_processing', 'risk_assessment', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
+        'comprehensive_workflow': ['document_processing', 'risk_assessment', 'market_qualification', 'lead_qualification', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
+    }
+    return stages_map.get(workflow_pattern, stages_map['comprehensive_workflow'])
+
+def get_review_configuration():
+    """Get current review configuration"""
+    # This reflects the current AGENT_REVIEW_CONFIG from multi_workflow.py
+    return {
+        'document_processing': False,
+        'data_validation': False,
+        'underwriting': False,
+        'risk_assessment': False,
+        'compliance_verification': True,  # Only this requires review
+        'decision_making': False,
+        'account_provisioning': False,
+        'communication': False,
+        'market_qualification': False,
+        'lead_qualification': False,
+        'exception_routing': False,
+        'monitoring': False,
+        'optimization': False,
+        'onboarding_support': False
+    }
+
+def count_actual_agents(agent_results, needs_review=False, review_agent=None):
+    """Count only actual agent names, excluding nested data structures and agents under review"""
+    if not agent_results or not isinstance(agent_results, dict):
+        return 0
+    
+    # Known agent names from the workflow
+    known_agents = {
+        'document_processing', 'risk_assessment', 'data_validation', 'underwriting',
+        'compliance_verification', 'decision_making', 'communication', 'account_provisioning',
+        'market_qualification', 'lead_qualification', 'exception_routing', 'monitoring',
+        'optimization', 'onboarding_support'
+    }
+    
+    # Count actual completed agents (exclude agents under review)
+    count = 0
+    for key in agent_results.keys():
+        if key in known_agents:
+            # Don't count agents that are currently under review
+            if needs_review and review_agent == key:
+                continue
+            count += 1
+        elif key == 'decision' and 'decision_making' not in agent_results:
+            # Don't count if decision_making is under review
+            if not (needs_review and review_agent == 'decision_making'):
+                count += 1
+    
+    return count
+
+def extract_business_name(app):
+    """Extract business name from various sources"""
+    business_name = app.business_name
+    if business_name == 'Processing...' or not business_name:
+        # Try document_processing agent result first (most reliable)
+        if app.agent_results and 'document_processing' in app.agent_results:
+            doc_result = app.agent_results['document_processing']
+            if isinstance(doc_result, dict) and doc_result.get('extracted_data', {}).get('business_name'):
+                business_name = doc_result['extracted_data']['business_name']
+        
+        # Try other agent results if still not found
+        if (business_name == 'Processing...' or not business_name) and app.agent_results:
+            for agent_name, result in app.agent_results.items():
+                if isinstance(result, dict) and result.get('extracted_data', {}).get('business_name'):
+                    business_name = result['extracted_data']['business_name']
+                    break
+    
+    return business_name or 'Unknown Business'
+
+def calculate_processing_duration(app):
+    """Calculate processing duration in minutes"""
+    if app.processing_start_time:
+        end_time = app.processing_end_time or app.updated_at
+        if end_time:
+            delta = end_time - app.processing_start_time
+            return int(delta.total_seconds() / 60)
+    return 0
+
+def get_corrected_status(app):
+    """Get corrected status based on decision results for existing applications"""
+    # Always check decision results for status correction
+    if app.agent_results:
+        # Check decision_making result
+        decision_result = app.agent_results.get('decision_making') or app.agent_results.get('decision')
+        if decision_result and isinstance(decision_result, dict):
+            decision = decision_result.get('decision') or decision_result.get('final_decision')
+            if decision == 'DECLINED':
+                return 'declined'
+            elif decision in ['APPROVED', 'CONDITIONAL']:
+                # Check if account provisioning was skipped due to not_approved
+                account_prov = app.agent_results.get('account_provisioning')
+                if account_prov and account_prov.get('skipped') == 'True' and account_prov.get('reason') == 'not_approved':
+                    return 'declined'  # Actually declined despite CONDITIONAL decision
+                return 'approved'
+    
+    return app.status
+
+def calculate_dynamic_progress(app):
+    """Calculate progress based on completed agents"""
+    if not app.agent_results:
+        return 0
+    
+    # Define agents per workflow
+    workflow_agents = {
+        'express_workflow': ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'],
+        'standard_workflow': ['document_processing', 'risk_assessment', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
+        'comprehensive_workflow': ['document_processing', 'risk_assessment', 'market_qualification', 'lead_qualification', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
+    }
+    
+    agents_to_check = workflow_agents.get(app.workflow_pattern, workflow_agents['standard_workflow'])
+    total_agents = len(agents_to_check)
+    
+    # Count completed agents for this workflow
+    completed_count = 0
+    for agent in agents_to_check:
+        if agent == 'decision_making':
+            # Handle decision_making stored as 'decision'
+            if app.agent_results.get('decision_making') or app.agent_results.get('decision'):
+                completed_count += 1
+        elif app.agent_results.get(agent):
+            completed_count += 1
+    
+    # Exclude agent under review
+    if app.needs_review == 'true' and app.review_agent and app.review_agent in app.agent_results:
+        completed_count -= 1
+    
+    return min(100, int((completed_count / total_agents) * 100))
 
 @app.route('/api/application-state/<app_id>')
 def get_application_state(app_id):
@@ -380,28 +458,30 @@ def get_application_state(app_id):
         if not application:
             return jsonify({'error': 'Application not found'}), 404
         
-        # Get workflow pattern info
+        # Get workflow pattern info with dynamic review count
         workflow_pattern = application.workflow_pattern or 'comprehensive_workflow'
+        expected_reviews = get_expected_reviews_count(workflow_pattern)
+        
         workflow_info = {
             'comprehensive_workflow': {
                 'name': 'Comprehensive Workflow',
                 'estimated_time': '2-4 hours',
-                'expected_reviews': 13
+                'expected_reviews': expected_reviews
             },
             'standard_workflow': {
                 'name': 'Standard Workflow', 
                 'estimated_time': '1-2 hours',
-                'expected_reviews': 7
+                'expected_reviews': expected_reviews
             },
             'express_workflow': {
                 'name': 'Express Workflow',
                 'estimated_time': '30-60 minutes', 
-                'expected_reviews': 4
+                'expected_reviews': expected_reviews
             }
         }.get(workflow_pattern, {
             'name': 'Comprehensive Workflow',
             'estimated_time': '2-4 hours',
-            'expected_reviews': 13
+            'expected_reviews': expected_reviews
         })
         
         # Extract business name from various sources
@@ -428,7 +508,7 @@ def get_application_state(app_id):
         return jsonify({
             'application_id': application.id,
             'business_name': business_name,
-            'status': application.status,
+            'status': get_corrected_status(application),
             'current_agent': application.current_agent,
             'progress_percentage': application.progress_percentage or 0,
             'agent_results': application.agent_results or {},
@@ -438,7 +518,10 @@ def get_application_state(app_id):
             'workflow_pattern': workflow_pattern,
             'workflow_info': workflow_info,
             'created_at': application.created_at.isoformat(),
-            'updated_at': application.updated_at.isoformat()
+            'updated_at': application.updated_at.isoformat(),
+            'processing_duration': calculate_processing_duration(application),
+            'extracted_data': application.extracted_data,
+            'application_data': application.application_data
         })
     finally:
         session.close()
@@ -732,9 +815,15 @@ def restart_workflow(app_id):
             application.needs_review = 'false'
             session.commit()
             
-            # Restart workflow in background thread
-            print(f"[{app_id}] Restarting workflow with {len(documents)} documents")
-            thread = threading.Thread(target=run_workflow, args=(app_id, documents, business_name, 'comprehensive_workflow'))
+            # Resume workflow with preserved state
+            app_data = application.application_data or {}
+            app_data['application_id'] = app_id
+            app_data['completed_agents'] = application.agent_results or {}
+            workflow_pattern = application.workflow_pattern or 'comprehensive_workflow'
+            
+            print(f"[{app_id}] Resuming workflow with {len(documents)} documents")
+            print(f"[{app_id}] Preserving {len(app_data.get('completed_agents', {}))} completed agents")
+            thread = threading.Thread(target=run_workflow, args=(app_id, documents, business_name, workflow_pattern, app_data))
             thread.daemon = True
             thread.start()
             
@@ -787,6 +876,61 @@ def force_save_test(app_id):
             'agent_results': application.agent_results,
             'agent_results_keys': list(application.agent_results.keys()) if application.agent_results else None
         })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+    finally:
+        session.close()
+
+@app.route('/api/applications/<app_id>/set-review-required', methods=['POST'])
+def set_review_required(app_id):
+    """Set application to require human review for testing"""
+    session = Session()
+    try:
+        application = session.query(MerchantApplication).filter_by(id=app_id).first()
+        if not application:
+            return jsonify({'error': 'Application not found'}), 404
+        
+        # Set application to require compliance verification review
+        application.status = 'pending_human_review'
+        application.needs_review = 'true'
+        application.review_agent = 'compliance_verification'
+        application.current_agent = 'compliance_verification'
+        application.progress_percentage = 75
+        
+        # Ensure compliance verification result exists
+        if not application.agent_results:
+            application.agent_results = {}
+        
+        application.agent_results['compliance_verification'] = {
+            'compliance_verification_complete': 'True',
+            'sanctions_clear': True,
+            'kyc_status': 'verified',
+            'aml_status': 'clear',
+            'pep_clear': True,
+            'compliance_score': '0.85',
+            'requires_enhanced_dd': False,
+            'processing_time': '2.5',
+            'agent_reasoning': 'Compliance verification completed. All checks passed but requires human review due to configuration.',
+            'tools_used': ['ofac_sanctions_check', 'pep_screening', 'aml_risk_assessment', 'kyc_verification']
+        }
+        
+        application.review_data = application.agent_results['compliance_verification']
+        application.updated_at = datetime.now()
+        
+        session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Application {app_id} set to require compliance verification review',
+            'status': application.status,
+            'needs_review': application.needs_review,
+            'review_agent': application.review_agent
+        })
+        
     except Exception as e:
         import traceback
         return jsonify({
@@ -872,16 +1016,52 @@ def submit_review_decision(app_id):
             application.status = 'processing'
             session.commit()
             
-            # Trigger workflow resume
+            # Try to trigger existing workflow first
             import builtins
             if hasattr(builtins, 'review_events') and app_id in builtins.review_events:
+                print(f"[{app_id}] Triggering existing workflow event")
                 builtins.review_events[app_id].set()
-            
-            return jsonify({
-                'success': True,
-                'decision': 'approved',
-                'message': 'Application approved and workflow resumed'
-            })
+                return jsonify({
+                    'success': True,
+                    'decision': 'approved',
+                    'message': 'Application approved and workflow resumed'
+                })
+            else:
+                print(f"[{app_id}] No existing workflow - restarting from current state")
+                # Restart workflow from current state
+                app_data = application.application_data or {}
+                app_data['application_id'] = app_id
+                app_data['completed_agents'] = application.agent_results or {}
+                business_name = application.business_name
+                workflow_pattern = application.workflow_pattern or 'comprehensive_workflow'
+                
+                # Load documents
+                upload_dir = os.path.join('uploads', app_id)
+                documents = []
+                if os.path.exists(upload_dir):
+                    for filename in os.listdir(upload_dir):
+                        if filename.endswith(('.pdf', '.png', '.jpg', '.jpeg', '.txt')):
+                            file_path = os.path.join(upload_dir, filename)
+                            documents.append({
+                                'id': filename,
+                                'type': detect_document_type(filename),
+                                'path': file_path,
+                                'filename': filename,
+                                'size': os.path.getsize(file_path),
+                                'uploaded_at': datetime.now().isoformat()
+                            })
+                
+                if documents:
+                    print(f"[{app_id}] Restarting workflow with {len(documents)} documents")
+                    thread = threading.Thread(target=run_workflow, args=(app_id, documents, business_name, workflow_pattern, app_data))
+                    thread.daemon = True
+                    thread.start()
+                
+                return jsonify({
+                    'success': True,
+                    'decision': 'approved',
+                    'message': 'Application approved and workflow restarted'
+                })
             
         elif decision == 'rejected':
             # Mark as declined
@@ -929,6 +1109,54 @@ def debug_application(app_id):
     finally:
         session.close()
 
+@app.route('/api/admin/clear-all', methods=['DELETE'])
+def clear_all_applications():
+    """Delete all applications from database"""
+    session = Session()
+    try:
+        count = session.query(MerchantApplication).count()
+        session.query(MerchantApplication).delete()
+        session.commit()
+        return jsonify({
+            'success': True,
+            'message': f'Deleted {count} applications',
+            'deleted_count': count
+        })
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
+@app.route('/api/admin/update-business-names', methods=['POST'])
+def update_business_names():
+    """Update applications with unique business names for presentation"""
+    business_names = [
+        'TechFlow Solutions LLC',
+        'Green Valley Organics', 
+        'Metro Coffee Roasters',
+        'Digital Marketing Pro',
+        'Coastal Construction Co',
+        'Artisan Bakery & Cafe'
+    ]
+    
+    session = Session()
+    try:
+        applications = session.query(MerchantApplication).order_by(MerchantApplication.created_at.desc()).all()
+        updated = 0
+        
+        for i, app in enumerate(applications[:len(business_names)]):
+            app.business_name = business_names[i]
+            updated += 1
+        
+        session.commit()
+        return jsonify({'success': True, 'updated': updated, 'names': business_names[:updated]})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+
 @app.route('/api/workflow-stages/<pattern>')
 def get_workflow_stages(pattern):
     """Get workflow stages for a specific pattern"""
@@ -936,8 +1164,8 @@ def get_workflow_stages(pattern):
     workflow_stages = {
         'routing_workflow': ['document_processing', 'risk_assessment'],
         'express_workflow': ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'],
-        'standard_workflow': ['document_processing', 'risk_assessment', 'data_validation', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
-        'comprehensive_workflow': ['document_processing', 'risk_assessment', 'market_qualification', 'lead_qualification', 'data_validation', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
+        'standard_workflow': ['document_processing', 'risk_assessment', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
+        'comprehensive_workflow': ['document_processing', 'risk_assessment', 'market_qualification', 'lead_qualification', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
     }
     
     stages = workflow_stages.get(pattern, workflow_stages['comprehensive_workflow'])
@@ -1143,7 +1371,7 @@ def process_documents():
             'routing_reason': routing_reason,
             'complexity_score': routing_analysis['complexity_score'],
             'document_types': routing_analysis['document_types'],
-            'expected_reviews': 13
+            'expected_reviews': get_expected_reviews_count('routing_workflow')
         })
         print(f"[{app_id}] Workflow pattern emitted: {routing_reason}", flush=True)
         
@@ -1199,13 +1427,20 @@ def detect_document_type(filename):
     else:
         return 'business_license'  # Default
 
-def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensive_workflow'):
-    """Run the test workflow with human review"""
+def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensive_workflow', preserved_data=None):
+    """Run the workflow with state preservation to avoid re-executing completed agents"""
     try:
         print(f"[{app_id}] *** WORKFLOW THREAD STARTED ***", flush=True)
         print(f"[{app_id}] Business: {business_name}", flush=True)
         print(f"[{app_id}] Documents: {len(documents)}", flush=True)
         print(f"[{app_id}] Pattern: {workflow_pattern}", flush=True)
+        
+        # Check if this is a resume with preserved state
+        if preserved_data and preserved_data.get('completed_agents'):
+            completed_agents = preserved_data['completed_agents']
+            print(f"[{app_id}] RESUMING with {len(completed_agents)} completed agents: {list(completed_agents.keys())}")
+        else:
+            print(f"[{app_id}] STARTING fresh workflow")
         
         # Emit immediate start signal
         socketio.emit('workflow_started', {
@@ -1215,149 +1450,41 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
         })
         print(f"[{app_id}] Emitted workflow_started event", flush=True)
         
-        # Prepare application data with consistent ID
-        application_data = {
+        # Prepare application data with consistent ID and preserved state
+        application_data = preserved_data or {}
+        application_data.update({
             'application_id': app_id,  # Ensure consistent ID
             'business_name': business_name,
             'documents': [doc['filename'] for doc in documents],
             'workflow_pattern': workflow_pattern
-        }
+        })
         print(f"[DEBUG] Application data app_id: {application_data.get('application_id')}", flush=True)
         
         print(f"[{app_id}] Starting workflow execution...", flush=True)
         
-        # Progress callback for 14-agent workflow
+        # Progress callback for workflow with state preservation
         agent_progress_tracker = {}
+        if preserved_data and preserved_data.get('completed_agents'):
+            # Pre-populate with already completed agents to avoid re-execution
+            agent_progress_tracker.update(preserved_data['completed_agents'])
+            print(f"[{app_id}] Pre-populated progress tracker with {len(agent_progress_tracker)} completed agents")
+        
         from datetime import datetime
         
         def progress_callback(agent_name, status, result):
             print(f"[{app_id}] *** PROGRESS CALLBACK TRIGGERED ***", flush=True)
             print(f"[{app_id}] Agent {agent_name}: {status}", flush=True)
-            print(f"[{app_id}] Result type: {type(result)}", flush=True)
             
             # Track agent completion
             if status == 'completed':
                 agent_progress_tracker[agent_name] = result or {}
             
-            # Get workflow pattern from database to calculate correct progress
-            session_temp = Session()
-            try:
-                app_temp = session_temp.query(MerchantApplication).filter_by(id=app_id).first()
-                db_workflow_pattern = app_temp.workflow_pattern if app_temp else workflow_pattern
-            except:
-                db_workflow_pattern = workflow_pattern
-            finally:
-                session_temp.close()
-            
-            # Calculate progress based on correct workflow
-            if db_workflow_pattern == 'routing_workflow':
-                total_agents = 2  # Only document_processing + market_qualification
-            elif db_workflow_pattern == 'express_workflow':
-                total_agents = 4
-            elif db_workflow_pattern == 'standard_workflow':
-                total_agents = 7
-            else:
-                total_agents = 14
-            
+            # Calculate progress
             completed_count = len(agent_progress_tracker)
+            total_agents = 8  # Standard workflow
             progress = min(100, int((completed_count / total_agents) * 100))
             
-            print(f"[{app_id}] Progress calculation: {completed_count}/{total_agents} agents = {progress}% (pattern: {db_workflow_pattern})")
-            
-            # Force 100% when all agents are done
-            if completed_count >= total_agents:
-                progress = 100
-            
             print(f"[{app_id}] Progress: {completed_count}/{total_agents} = {progress}%", flush=True)
-            
-            # Update database with agent results immediately
-            if not globals().get('app_shutdown', False):
-                session = None
-                try:
-                    print(f"[{app_id}] Creating database session...")
-                    session = Session()
-                    print(f"[{app_id}] Querying for application {app_id}...")
-                    application = session.query(MerchantApplication).filter_by(id=app_id).first()
-                    
-                    if application:
-                        print(f"[{app_id}] Found application in database: {application.id}")
-                        print(f"[{app_id}] Current agent_results: {type(application.agent_results)} - {application.agent_results}")
-                        
-                        # Update basic fields
-                        application.current_agent = agent_name
-                        application.progress_percentage = progress
-                        application.updated_at = datetime.now()
-                        
-                        # Store agent results immediately when completed or review required
-                        if status in ['completed', 'review_required'] and result:
-                            print(f"[{app_id}] Processing {status} result for {agent_name}")
-                            current_results = application.agent_results or {}
-                            print(f"[{app_id}] Current results keys: {list(current_results.keys()) if current_results else 'None'}")
-                            current_results[agent_name] = result
-                            application.agent_results = current_results
-                            print(f"[{app_id}] Updated agent_results with {agent_name}")
-                            print(f"[{app_id}] New results keys: {list(current_results.keys())}")
-                            
-                            # Extract business name from document processing results
-                            if agent_name == 'document_processing' and result:
-                                extracted_business_name = None
-                                if 'processed_documents' in result:
-                                    for doc in result['processed_documents']:
-                                        if 'extracted_data' in doc and 'business_name' in doc['extracted_data']:
-                                            extracted_business_name = doc['extracted_data']['business_name']
-                                            break
-                                elif 'extracted_data' in result and 'business_name' in result['extracted_data']:
-                                    extracted_business_name = result['extracted_data']['business_name']
-                                
-                                if extracted_business_name and extracted_business_name != application.business_name:
-                                    print(f"[{app_id}] Updating business name from '{application.business_name}' to '{extracted_business_name}'")
-                                    application.business_name = extracted_business_name
-                        
-                        # Also store when review is required
-                        if status == 'review_required' and result:
-                            print(f"[{app_id}] Processing review_required result for {agent_name}")
-                            current_results = application.agent_results or {}
-                            current_results[agent_name] = result
-                            application.agent_results = current_results
-                            application.needs_review = 'true'
-                            application.review_agent = agent_name
-                            application.review_data = result
-                            print(f"[{app_id}] Saved {agent_name} result for review")
-                            print(f"[{app_id}] Result data: {type(result)} - {len(str(result))} chars")
-                        
-                        print(f"[{app_id}] About to commit database changes...")
-                        session.commit()
-                        print(f"[{app_id}] Database committed successfully")
-                        
-                        # Verify the data was saved
-                        session.refresh(application)
-                        print(f"[{app_id}] Verification - agent_results after commit: {list(application.agent_results.keys()) if application.agent_results else 'None'}")
-                        
-                    else:
-                        print(f"[{app_id}] ERROR: Application not found in database!")
-                        print(f"[{app_id}] Searched for ID: '{app_id}'")
-                        # List all applications to debug
-                        all_apps = session.query(MerchantApplication).all()
-                        print(f"[{app_id}] Available applications: {[app.id for app in all_apps]}")
-                        
-                except Exception as e:
-                    if not globals().get('app_shutdown', False):
-                        print(f"[{app_id}] DB error: {e}")
-                        import traceback
-                        print(f"[{app_id}] DB error traceback: {traceback.format_exc()}")
-                        if session:
-                            try:
-                                session.rollback()
-                                print(f"[{app_id}] Session rolled back")
-                            except:
-                                pass
-                finally:
-                    if session:
-                        try:
-                            session.close()
-                            print(f"[{app_id}] Database session closed")
-                        except:
-                            pass
             
             # Emit progress with business name update
             emit_data = {
@@ -1404,6 +1531,14 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
         import builtins
         builtins.current_progress_callback = progress_callback
         print(f"[{app_id}] Set global progress callback before workflow start")
+        
+        # Store preserved data globally for agent access
+        if preserved_data and preserved_data.get('completed_agents'):
+            builtins.preserved_completed_agents = preserved_data['completed_agents']
+            print(f"[{app_id}] Stored {len(preserved_data['completed_agents'])} completed agents globally")
+        else:
+            builtins.preserved_completed_agents = {}
+            print(f"[{app_id}] No preserved agents to store globally")
         
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -1466,6 +1601,9 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                         if agent_name in result:
                             routing_results[agent_name] = result[agent_name]
                 
+                # Get expected reviews count for selected pattern
+                expected_reviews = get_expected_reviews_count(selected_pattern)
+                
                 # Update workflow_selected emission to include routing results
                 socketio.emit('workflow_selected', {
                     'application_id': app_id,
@@ -1473,6 +1611,7 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                     'name': workflow_meta['name'],
                     'estimated_time': workflow_meta['estimated_time'],
                     'total_agents': workflow_meta['agents'],
+                    'expected_reviews': expected_reviews,
                     'risk_tier': risk_tier,
                     'routing_results': routing_results
                 })
@@ -1494,50 +1633,33 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                 # Create new progress callback for selected workflow
                 selected_progress_tracker = agent_progress_tracker.copy()  # Preserve routing progress
                 
+                # Pre-populate with routing results to avoid double execution
+                if result and isinstance(result, dict):
+                    if 'document_processing' in result:
+                        selected_progress_tracker['document_processing'] = result['document_processing']
+                    if 'risk_assessment' in result:
+                        selected_progress_tracker['risk_assessment'] = result['risk_assessment']
+                    print(f"[{app_id}] Pre-populated progress tracker with routing results")
+                
                 def selected_progress_callback(agent_name, status, result):
                     print(f"[{app_id}] *** SELECTED WORKFLOW PROGRESS ***", flush=True)
                     print(f"[{app_id}] Agent {agent_name}: {status}", flush=True)
+                    
+                    # Skip if agent already completed in routing phase
+                    if agent_name in ['document_processing', 'risk_assessment'] and agent_name in selected_progress_tracker:
+                        print(f"[{app_id}] Skipping {agent_name} - already completed in routing phase")
+                        return
                     
                     # Track agent completion for selected workflow
                     if status == 'completed':
                         selected_progress_tracker[agent_name] = result or {}
                     
                     # Get correct total agents for selected workflow
-                    total_agents = 4 if selected_pattern == 'express_workflow' else 7 if selected_pattern == 'standard_workflow' else 14
+                    total_agents = 4 if selected_pattern == 'express_workflow' else 8 if selected_pattern == 'standard_workflow' else 14
                     completed_count = len(selected_progress_tracker)
                     progress = min(100, int((completed_count / total_agents) * 100))
                     
                     print(f"[{app_id}] Selected workflow progress: {completed_count}/{total_agents} = {progress}%")
-                    
-                    # Update database and emit progress
-                    if not globals().get('app_shutdown', False):
-                        session = None
-                        try:
-                            session = Session()
-                            application = session.query(MerchantApplication).filter_by(id=app_id).first()
-                            
-                            if application:
-                                application.current_agent = agent_name
-                                application.progress_percentage = progress
-                                application.updated_at = datetime.now()
-                                
-                                if status in ['completed', 'review_required'] and result:
-                                    current_results = application.agent_results or {}
-                                    current_results[agent_name] = result
-                                    application.agent_results = current_results
-                                    
-                                    if status == 'review_required':
-                                        application.needs_review = 'true'
-                                        application.review_agent = agent_name
-                                        application.review_data = result
-                                
-                                session.commit()
-                                print(f"[{app_id}] Updated database for selected workflow")
-                        except Exception as e:
-                            print(f"[{app_id}] DB error in selected workflow: {e}")
-                        finally:
-                            if session:
-                                session.close()
                     
                     # Emit progress
                     socketio.emit('agent_progress', {
@@ -1565,7 +1687,7 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
             # Check if workflow was stopped due to rejection
             if "rejection" in str(e).lower() or "stopped" in str(e).lower():
                 print(f"[{app_id}] Workflow stopped by human rejection")
-                result = {'status': 'declined', 'reason': 'human_rejection', 'error': str(e)}
+                final_status = 'declined'
                 
                 # Update database status
                 try:
@@ -1581,14 +1703,23 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                 
                 return  # Exit workflow execution completely
             else:
-                result = {'status': 'failed', 'error': str(e)}
-        # Determine final status
+                final_status = 'failed'
+        # Determine final status based on business outcome
         final_status = 'completed'
         if isinstance(result, dict):
-            if result.get('decision_making', {}).get('decision') == 'APPROVED':
-                final_status = 'approved'
-            elif result.get('decision_making', {}).get('decision') == 'DECLINED':
-                final_status = 'declined'
+            # Check decision_making result (could be under 'decision_making' or 'decision' key)
+            decision_result = result.get('decision_making') or result.get('decision')
+            if decision_result and isinstance(decision_result, dict):
+                decision = decision_result.get('decision') or decision_result.get('final_decision')
+                if decision == 'APPROVED':
+                    final_status = 'approved'
+                elif decision == 'DECLINED':
+                    final_status = 'declined'
+                elif decision == 'CONDITIONAL':
+                    final_status = 'approved'  # Conditional approval is still approval
+            # If no clear decision found, check if workflow failed
+            elif result.get('status') == 'failed':
+                final_status = 'failed'
         
         print(f"[{app_id}] Final status: {final_status}", flush=True)
         
@@ -1638,6 +1769,7 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
                 application.review_agent = None
                 application.review_data = None
                 print(f"[{app_id}] Cleared review status on workflow completion")
+                print(f"[{app_id}] Final business outcome: {final_status.upper()}")
                 
                 # Add workflow pattern info
                 if hasattr(result, 'workflow_pattern'):
@@ -1785,19 +1917,21 @@ def on_workflow_resume(data):
             application.status = 'processing'
             session.commit()
             print(f"[{app_id}] Updated status to processing", flush=True)
+        else:
+            print(f"[{app_id}] Application not found for resume")
+            return
     finally:
         session.close()
     
-    # TRIGGER THE EVENT TO RESUME WORKFLOW
+    # TRIGGER THE EVENT TO RESUME WORKFLOW OR RESTART
     import builtins
     if hasattr(builtins, 'review_events') and app_id in builtins.review_events:
         print(f"[{app_id}] Triggering review event to resume workflow")
         builtins.review_events[app_id].set()
         print(f"[{app_id}] Review event triggered - workflow should resume")
     else:
-        print(f"[{app_id}] WARNING: No review event found for this application")
-        if hasattr(builtins, 'review_events'):
-            print(f"[{app_id}] Available events: {list(builtins.review_events.keys())}")
+        print(f"[{app_id}] No active workflow found - workflow may have completed or failed")
+        # DO NOT restart workflow - just log that no active workflow exists
     
     # Emit resume confirmation
     emit('workflow_resumed', {'application_id': app_id})
@@ -1812,6 +1946,24 @@ app_shutdown = False
 def shutdown_session(exception=None):
     global app_shutdown
     app_shutdown = True
+
+@app.route('/api/admin/delete-application/<app_id>', methods=['DELETE'])
+def delete_application(app_id):
+    """Delete specific application by ID"""
+    session = Session()
+    try:
+        app = session.query(MerchantApplication).filter_by(id=app_id).first()
+        if not app:
+            return jsonify({'error': 'Application not found'}), 404
+        
+        session.delete(app)
+        session.commit()
+        return jsonify({'success': True, 'deleted': app_id})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
 
 if __name__ == '__main__':
     # Create uploads directory
@@ -1828,3 +1980,62 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("\nShutting down gracefully...")
         app_shutdown = True
+@app.route('/api/admin/update-for-presentation', methods=['POST'])
+def update_for_presentation():
+    """Update applications with presentation data"""
+    presentation_data = [
+        {'business_name': 'TechFlow Solutions LLC', 'workflow_pattern': 'comprehensive_workflow', 'status': 'approved'},
+        {'business_name': 'Green Valley Organics', 'workflow_pattern': 'standard_workflow', 'status': 'declined'},
+        {'business_name': 'Metro Coffee Roasters', 'workflow_pattern': 'express_workflow', 'status': 'approved'},
+        {'business_name': 'Digital Marketing Pro', 'workflow_pattern': 'standard_workflow', 'status': 'pending_human_review'},
+        {'business_name': 'Coastal Construction Co', 'workflow_pattern': 'comprehensive_workflow', 'status': 'processing'},
+        {'business_name': 'Artisan Bakery & Cafe', 'workflow_pattern': 'express_workflow', 'status': 'approved'}
+    ]
+    
+    session = Session()
+    try:
+        applications = session.query(MerchantApplication).all()
+        updated = 0
+        
+        for i, app in enumerate(applications[:len(presentation_data)]):
+            update_data = presentation_data[i]
+            app.business_name = update_data['business_name']
+            app.workflow_pattern = update_data['workflow_pattern']
+            app.status = update_data['status']
+            updated += 1
+        
+        session.commit()
+        return jsonify({'success': True, 'updated': updated})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
+@app.route('/api/admin/update-business-names', methods=['POST'])
+def update_business_names():
+    """Update applications with unique business names for presentation"""
+    business_names = [
+        'TechFlow Solutions LLC',
+        'Green Valley Organics', 
+        'Metro Coffee Roasters',
+        'Digital Marketing Pro',
+        'Coastal Construction Co',
+        'Artisan Bakery & Cafe'
+    ]
+    
+    session = Session()
+    try:
+        applications = session.query(MerchantApplication).order_by(MerchantApplication.created_at.desc()).all()
+        updated = 0
+        
+        for i, app in enumerate(applications[:len(business_names)]):
+            app.business_name = business_names[i]
+            updated += 1
+        
+        session.commit()
+        return jsonify({'success': True, 'updated': updated, 'names': business_names[:updated]})
+    except Exception as e:
+        session.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()

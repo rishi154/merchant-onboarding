@@ -10,8 +10,8 @@ flowchart TD
     C --> D{Risk-Based Workflow Routing}
     
     D -->|LOW Risk<br/>Score 0-300| E[Express Workflow<br/>4 Agents - 20 min]
-    D -->|MEDIUM Risk<br/>Score 301-700| F[Standard Workflow<br/>7 Agents - 90 min]
-    D -->|HIGH Risk<br/>Score 701-1000| G[Comprehensive Workflow<br/>13 Agents - 180 min]
+    D -->|MEDIUM Risk<br/>Score 301-700| F[Standard Workflow<br/>8 Agents - 90 min]
+    D -->|HIGH Risk<br/>Score 701-1000| G[Comprehensive Workflow<br/>14 Agents - 180 min]
     
     E --> H{Human Review?}
     F --> H
@@ -30,7 +30,7 @@ flowchart TD
     style G fill:#ffcdd2
 ```
 
-## 13 AI Agents - Actual Implementation
+## 14 AI Agents - Actual Implementation
 
 ```mermaid
 graph TB
@@ -43,17 +43,18 @@ graph TB
     
     subgraph "Standard/Comprehensive Agents"
         A5[Data Validation Agent]
-        A6[Compliance Verification Agent]
-        A7[Communication Agent]
+        A6[Underwriting Agent]
+        A7[Compliance Verification Agent]
+        A8[Communication Agent]
     end
     
     subgraph "Comprehensive Only Agents"
-        A8[Market Qualification Agent]
-        A9[Lead Qualification Agent]
-        A10[Exception Routing Agent]
-        A11[Monitoring Agent]
-        A12[Optimization Agent]
-        A13[Onboarding Support Agent]
+        A9[Market Qualification Agent]
+        A10[Lead Qualification Agent]
+        A11[Exception Routing Agent]
+        A12[Monitoring Agent]
+        A13[Optimization Agent]
+        A14[Onboarding Support Agent]
     end
     
     A1 --> A2
@@ -61,18 +62,19 @@ graph TB
     A3 --> A4
     
     A2 --> A5
-    A2 --> A6
-    A6 --> A3
-    A4 --> A7
+    A5 --> A6
+    A6 --> A7
+    A7 --> A3
+    A4 --> A8
     
-    A2 --> A8
-    A8 --> A9
-    A9 --> A5
-    A3 --> A10
-    A10 --> A7
-    A4 --> A11
-    A11 --> A12
+    A2 --> A9
+    A9 --> A10
+    A10 --> A5
+    A3 --> A11
+    A11 --> A8
+    A4 --> A12
     A12 --> A13
+    A13 --> A14
 ```
 
 ## Actual Workflow Implementation (From Code)
@@ -84,18 +86,19 @@ graph TB
         E2 --> E3[Decision Making] --> E4[Account Provisioning]
     end
     
-    subgraph "Standard Workflow (7 agents)"
+    subgraph "Standard Workflow (8 agents)"
         S1[Document Processing] --> S3[Risk Assessment]
-        S3 --> S2[Data Validation]
-        S3 --> S4[Compliance Verification]
+        S3 --> S2[Data Validation] --> S8[Underwriting]
+        S8 --> S4[Compliance Verification]
         S4 --> S5[Decision Making] --> S6[Account Provisioning]
         S6 --> S7[Communication]
     end
     
-    subgraph "Comprehensive Workflow (13 agents)"
+    subgraph "Comprehensive Workflow (14 agents)"
         C1[Document Processing] --> C2[Risk Assessment]
         C2 --> C3[Market Qualification] --> C4[Lead Qualification]
-        C4 --> C5[Data Validation] --> C6[Compliance Verification]
+        C4 --> C5[Data Validation] --> C14[Underwriting]
+        C14 --> C6[Compliance Verification]
         C6 --> C7[Decision Making] --> C8[Exception Routing]
         C8 --> C9[Communication] --> C10[Account Provisioning]
         C10 --> C11[Monitoring] --> C12[Optimization]

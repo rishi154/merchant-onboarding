@@ -282,7 +282,7 @@
         socket.on('workflow_pattern_selected', (data) => {
             document.getElementById('workflow-pattern').textContent = data.name;
             document.getElementById('estimated-time').textContent = data.estimated_time;
-            document.getElementById('expected-reviews').textContent = data.expected_reviews || '13';
+            document.getElementById('expected-reviews').textContent = data.expected_reviews || '1';
             
             // Initialize pipeline based on workflow pattern
             const patternMap = {
@@ -299,7 +299,7 @@
             console.log('*** WORKFLOW SELECTED EVENT ***', data);
             document.getElementById('workflow-pattern').textContent = data.name;
             document.getElementById('estimated-time').textContent = data.estimated_time;
-            document.getElementById('expected-reviews').textContent = data.total_agents;
+            document.getElementById('expected-reviews').textContent = data.expected_reviews || '1';
             
             // Show workflow selection notification
             const notification = document.createElement('div');

@@ -345,9 +345,9 @@
                             ${agentStatusHtml ? `<div class="mt-3"><strong>Agent Results:</strong><div class="agent-indicators mt-2">${agentStatusHtml}</div></div>` : ''}
                         </div>
                         <div class="app-actions">
-                            <button class="btn btn-primary" onclick="viewApplication('${app.application_id}')">View Details</button>
+                            <button class="btn btn-primary" onclick="reviewApplication('${app.application_id}')">Review Application</button>
                             ${app.status === 'processing' ? `<button class="btn btn-secondary" onclick="trackApplication('${app.application_id}')">Track Progress</button>` : ''}
-                            <button class="btn btn-secondary" onclick="viewData('${app.application_id}')">View Data</button>
+                            <button class="btn btn-secondary" onclick="viewData('${app.application_id}')">View Raw Data</button>
                         </div>
                     `;
                     
@@ -368,8 +368,8 @@
             }
         }
 
-        function viewApplication(appId) {
-            window.open(`/application/${appId}`, '_blank');
+        function reviewApplication(appId) {
+            window.location.href = `/application/${appId}`;
         }
 
         function trackApplication(appId) {
@@ -424,12 +424,12 @@
         }
 
         function getWorkflowAgentCount(agentResults) {
-            if (!agentResults) return 13; // Default comprehensive workflow
+            if (!agentResults) return 14; // Default comprehensive workflow
             
             const resultKeys = Object.keys(agentResults);
             if (resultKeys.length <= 4) return 4;  // Express
-            if (resultKeys.length <= 7) return 7;  // Standard
-            return 13; // Comprehensive
+            if (resultKeys.length <= 8) return 8;  // Standard
+            return 14; // Comprehensive
         }
         
         function generateAgentStatusIndicators(agentResults) {
@@ -446,6 +446,7 @@
                 'standard_workflow': [
                     { key: 'document_processing', name: 'Document Processing' },
                     { key: 'data_validation', name: 'Data Validation' },
+                    { key: 'underwriting', name: 'Underwriting' },
                     { key: 'risk_assessment', name: 'Risk Assessment' },
                     { key: 'compliance_verification', name: 'Compliance Verification' },
                     { key: 'decision_making', name: 'Decision Making' },
@@ -457,6 +458,7 @@
                     { key: 'market_qualification', name: 'Market Qualification' },
                     { key: 'lead_qualification', name: 'Lead Qualification' },
                     { key: 'data_validation', name: 'Data Validation' },
+                    { key: 'underwriting', name: 'Underwriting' },
                     { key: 'risk_assessment', name: 'Risk Assessment' },
                     { key: 'compliance_verification', name: 'Compliance Verification' },
                     { key: 'decision_making', name: 'Decision Making' },

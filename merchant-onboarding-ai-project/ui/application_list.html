@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Management - Merchant Onboarding</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .filter-card { transition: all 0.3s ease; }
+        .filter-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .table-row:hover { background-color: #f8fafc; }
+        .status-badge { font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 9999px; }
+        .status-processing { background-color: #dbeafe; color: #1e40af; }
+        .status-completed { background-color: #dcfce7; color: #166534; }
+        .status-approved { background-color: #dcfce7; color: #166534; }
+        .status-declined { background-color: #fee2e2; color: #dc2626; }
+        .status-failed { background-color: #fee2e2; color: #dc2626; }
+        .status-pending_human_review { background-color: #fef3c7; color: #d97706; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-semibold text-gray-900">Application Management</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/new" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">New Application</a>
+                    <a href="/analytics" class="text-gray-600 hover:text-gray-900">Analytics</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Search and Filters -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Search & Filter Applications</h2>
+            </div>
+            <div class="px-6 py-4">
+                <!-- Search Bar -->
+                <div class="mb-4">
+                    <div class="relative">
+                        <input type="text" id="search-input" placeholder="Search by business name, application ID, or agent..." 
+                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Options -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select id="status-filter" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">All Statuses</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Workflow</label>
+                        <select id="workflow-filter" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">All Workflows</option>
+                            <option value="express_workflow">Express</option>
+                            <option value="standard_workflow">Standard</option>
+                            <option value="comprehensive_workflow">Comprehensive</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Review Status</label>
+                        <select id="review-filter" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">All</option>
+                            <option value="true">Needs Review</option>
+                            <option value="false">No Review Needed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                        <input type="date" id="date-from" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                        <input type="date" id="date-to" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Filter Actions -->
+                <div class="mt-4 flex space-x-3">
+                    <button id="apply-filters" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                        Apply Filters
+                    </button>
+                    <button id="clear-filters" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                        Clear All
+                    </button>
+                    <button id="export-results" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                        Export Results
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Summary -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-gray-600">
+                            Showing <span id="results-count" class="font-medium">0</span> applications
+                            <span id="filter-summary" class="text-gray-500"></span>
+                        </p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button id="refresh-btn" class="text-blue-600 hover:text-blue-800 text-sm">
+                            🔄 Refresh
+                        </button>
+                        <select id="sort-by" class="border border-gray-300 rounded-md px-3 py-1 text-sm">
+                            <option value="created_at_desc">Newest First</option>
+                            <option value="created_at_asc">Oldest First</option>
+                            <option value="business_name_asc">Business Name A-Z</option>
+                            <option value="status_asc">Status</option>
+                            <option value="progress_desc">Progress</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Applications Table -->
+        <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Application</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Workflow</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Review</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="applications-table" class="bg-white divide-y divide-gray-200">
+                        <!-- Applications will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Loading State -->
+            <div id="loading-state" class="px-6 py-12 text-center">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p class="mt-2 text-gray-600">Loading applications...</p>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="px-6 py-12 text-center hidden">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">No applications found</h3>
+                <p class="mt-1 text-sm text-gray-500">Try adjusting your search criteria or create a new application.</p>
+                <div class="mt-6">
+                    <a href="/new" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                        New Application
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentApplications = [];
+        let filterOptions = {};
+
+        // Initialize page
+        async function initializePage() {
+            await loadFilterOptions();
+            await loadApplications();
+            setupEventListeners();
+        }
+
+        // Load filter options
+        async function loadFilterOptions() {
+            try {
+                const response = await fetch('/api/search/filters');
+                if (response.ok) {
+                    filterOptions = await response.json();
+                    populateFilterDropdowns();
+                }
+            } catch (error) {
+                console.error('Error loading filter options:', error);
+            }
+        }
+
+        // Populate filter dropdowns
+        function populateFilterDropdowns() {
+            const statusSelect = document.getElementById('status-filter');
+            filterOptions.statuses?.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = formatStatus(status);
+                statusSelect.appendChild(option);
+            });
+        }
+
+        // Load applications
+        async function loadApplications() {
+            showLoading();
+            
+            try {
+                const params = new URLSearchParams();
+                
+                // Get filter values
+                const query = document.getElementById('search-input').value.trim();
+                const status = document.getElementById('status-filter').value;
+                const workflow = document.getElementById('workflow-filter').value;
+                const review = document.getElementById('review-filter').value;
+                const dateFrom = document.getElementById('date-from').value;
+                const dateTo = document.getElementById('date-to').value;
+                
+                // Add non-empty parameters
+                if (query) params.append('q', query);
+                if (status) params.append('status', status);
+                if (workflow) params.append('workflow', workflow);
+                if (review) params.append('needs_review', review);
+                if (dateFrom) params.append('date_from', dateFrom);
+                if (dateTo) params.append('date_to', dateTo);
+                
+                const url = params.toString() ? `/api/search/applications?${params}` : '/api/applications';
+                const response = await fetch(url);
+                
+                if (!response.ok) throw new Error('Failed to load applications');
+                
+                const data = await response.json();
+                currentApplications = data.applications || data; // Handle both search and regular API
+                
+                renderApplications();
+                updateResultsSummary();
+                
+            } catch (error) {
+                console.error('Error loading applications:', error);
+                showError('Failed to load applications. Please try again.');
+            }
+        }
+
+        // Render applications table
+        function renderApplications() {
+            const tbody = document.getElementById('applications-table');
+            const loadingState = document.getElementById('loading-state');
+            const emptyState = document.getElementById('empty-state');
+            
+            loadingState.classList.add('hidden');
+            
+            if (currentApplications.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            
+            emptyState.classList.add('hidden');
+            
+            // Sort applications
+            const sortBy = document.getElementById('sort-by').value;
+            sortApplications(sortBy);
+            
+            tbody.innerHTML = currentApplications.map(app => `
+                <tr class="table-row cursor-pointer" onclick="reviewApplication('${app.application_id}')">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">${app.business_name || 'Unknown Business'}</div>
+                            <div class="text-sm text-gray-500">${app.application_id}</div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="status-badge status-${app.status}">${formatStatus(app.status)}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${app.progress_percentage || 0}%"></div>
+                            </div>
+                            <span class="text-sm text-gray-600">${app.progress_percentage || 0}%</span>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">${app.agent_count || 0} agents completed</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${formatWorkflow(app.workflow_pattern)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${app.needs_review ? 
+                            `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                Review Required
+                            </span>` : 
+                            `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                No Review
+                            </span>`
+                        }
+                        ${app.review_agent ? `<div class="text-xs text-gray-500 mt-1">${formatAgentName(app.review_agent)}</div>` : ''}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div>${formatDate(app.created_at)}</div>
+                        ${app.processing_duration ? `<div class="text-xs">${app.processing_duration}m processing</div>` : ''}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex space-x-2">
+                            <button onclick="event.stopPropagation(); reviewApplication('${app.application_id}')" 
+                                    class="text-blue-600 hover:text-blue-900">Review</button>
+                            ${app.status === 'processing' ? 
+                                `<button onclick="event.stopPropagation(); trackApplication('${app.application_id}')" 
+                                         class="text-green-600 hover:text-green-900">Track</button>` : ''
+                            }
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Sort applications
+        function sortApplications(sortBy) {
+            switch (sortBy) {
+                case 'created_at_desc':
+                    currentApplications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                    break;
+                case 'created_at_asc':
+                    currentApplications.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                    break;
+                case 'business_name_asc':
+                    currentApplications.sort((a, b) => (a.business_name || '').localeCompare(b.business_name || ''));
+                    break;
+                case 'status_asc':
+                    currentApplications.sort((a, b) => a.status.localeCompare(b.status));
+                    break;
+                case 'progress_desc':
+                    currentApplications.sort((a, b) => (b.progress_percentage || 0) - (a.progress_percentage || 0));
+                    break;
+            }
+        }
+
+        // Update results summary
+        function updateResultsSummary() {
+            const count = currentApplications.length;
+            document.getElementById('results-count').textContent = count;
+            
+            // Build filter summary
+            const filters = [];
+            const query = document.getElementById('search-input').value.trim();
+            const status = document.getElementById('status-filter').value;
+            const workflow = document.getElementById('workflow-filter').value;
+            const review = document.getElementById('review-filter').value;
+            
+            if (query) filters.push(`matching "${query}"`);
+            if (status) filters.push(`status: ${formatStatus(status)}`);
+            if (workflow) filters.push(`workflow: ${formatWorkflow(workflow)}`);
+            if (review === 'true') filters.push('needs review');
+            if (review === 'false') filters.push('no review needed');
+            
+            const summary = filters.length > 0 ? ` (${filters.join(', ')})` : '';
+            document.getElementById('filter-summary').textContent = summary;
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('apply-filters').onclick = loadApplications;
+            document.getElementById('clear-filters').onclick = clearFilters;
+            document.getElementById('export-results').onclick = exportResults;
+            document.getElementById('refresh-btn').onclick = loadApplications;
+            document.getElementById('sort-by').onchange = renderApplications;
+            
+            // Search on Enter key
+            document.getElementById('search-input').onkeypress = (e) => {
+                if (e.key === 'Enter') loadApplications();
+            };
+        }
+
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('status-filter').value = '';
+            document.getElementById('workflow-filter').value = '';
+            document.getElementById('review-filter').value = '';
+            document.getElementById('date-from').value = '';
+            document.getElementById('date-to').value = '';
+            loadApplications();
+        }
+
+        // Export results
+        function exportResults() {
+            const data = {
+                exported_at: new Date().toISOString(),
+                total_applications: currentApplications.length,
+                applications: currentApplications
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `applications_export_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Navigation functions
+        function reviewApplication(appId) {
+            window.location.href = `/application/${appId}`;
+        }
+
+        function trackApplication(appId) {
+            window.open(`/processing?app_id=${appId}`, '_blank');
+        }
+
+        // Utility functions
+        function showLoading() {
+            document.getElementById('loading-state').classList.remove('hidden');
+            document.getElementById('empty-state').classList.add('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('loading-state').classList.add('hidden');
+            document.getElementById('applications-table').innerHTML = `
+                <tr><td colspan="7" class="px-6 py-12 text-center text-red-600">${message}</td></tr>
+            `;
+        }
+
+        function formatStatus(status) {
+            return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        }
+
+        function formatWorkflow(workflow) {
+            if (!workflow) return 'Unknown';
+            return workflow.replace('_workflow', '').charAt(0).toUpperCase() + workflow.replace('_workflow', '').slice(1);
+        }
+
+        function formatAgentName(agent) {
+            return agent.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Initialize page when loaded
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+</html>

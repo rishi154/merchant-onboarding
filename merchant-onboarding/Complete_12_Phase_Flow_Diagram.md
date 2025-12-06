@@ -20,31 +20,33 @@ flowchart TD
         E1 --> E2 --> E3 --> E4
     end
     
-    %% Standard Workflow (7 agents)
+    %% Standard Workflow (8 agents)
     ROUTE -->|MEDIUM Risk| STD[Standard Workflow]
-    subgraph STANDARD ["Standard Workflow - 7 Agents"]
+    subgraph STANDARD ["Standard Workflow - 8 Agents"]
         S1[Document Processing]
         S2[Data Validation]
         S3[Risk Assessment]
+        S8[Underwriting]
         S4[Compliance Verification]
         S5[Decision Making]
         S6[Account Provisioning]
         S7[Communication]
         
         S1 --> S3
-        S3 --> S2
-        S3 --> S4
+        S3 --> S2 --> S8
+        S8 --> S4
         S4 --> S5 --> S6 --> S7
     end
     
-    %% Comprehensive Workflow (13 agents)
+    %% Comprehensive Workflow (14 agents)
     ROUTE -->|HIGH Risk| COMP[Comprehensive Workflow]
-    subgraph COMPREHENSIVE ["Comprehensive Workflow - 13 Agents"]
+    subgraph COMPREHENSIVE ["Comprehensive Workflow - 14 Agents"]
         C1[Document Processing]
         C2[Risk Assessment]
         C3[Market Qualification]
         C4[Lead Qualification]
         C5[Data Validation]
+        C14[Underwriting]
         C6[Compliance Verification]
         C7[Decision Making]
         C8[Exception Routing]
@@ -54,7 +56,7 @@ flowchart TD
         C12[Optimization]
         C13[Onboarding Support]
         
-        C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> C8 --> C9 --> C10 --> C11 --> C12 --> C13
+        C1 --> C2 --> C3 --> C4 --> C5 --> C14 --> C6 --> C7 --> C8 --> C9 --> C10 --> C11 --> C12 --> C13
     end
     
     %% Human Review Integration
@@ -91,6 +93,7 @@ flowchart TD
         AR1[Document Processing: Auto-Approve]
         AR2[Data Validation: Human Review Required]
         AR3[Risk Assessment: Auto-Approve]
+        AR8[Underwriting: Auto-Approve]
         AR4[Compliance Verification: Human Review Required]
         AR5[Decision Making: Auto-Approve]
         AR6[Account Provisioning: Auto-Approve]

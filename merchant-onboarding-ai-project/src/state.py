@@ -32,6 +32,7 @@ class MerchantOnboardingState(BaseModel):
     lead_qualification: Optional[Dict] = None
     application_assistant: Optional[Dict] = None
     data_validation: Optional[Dict] = None
+    underwriting: Optional[Dict] = None
     risk_assessment: Optional[Dict] = None
     decision: Optional[Dict] = None
     exception_routing: Optional[Dict] = None

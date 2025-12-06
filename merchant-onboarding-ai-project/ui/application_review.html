@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Application Review - Merchant Onboarding</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .agent-card { transition: all 0.3s ease; }
+        .agent-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .timeline-item { position: relative; padding-left: 2rem; }
+        .timeline-item::before { content: ''; position: absolute; left: 0; top: 0.5rem; width: 0.75rem; height: 0.75rem; border-radius: 50%; }
+        .timeline-completed::before { background-color: #10b981; }
+        .timeline-review::before { background-color: #f59e0b; }
+        .timeline-pending::before { background-color: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-semibold text-gray-900">Application Review</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/applications" class="text-gray-600 hover:text-gray-900">← Back to Applications</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Application Header -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 id="business-name" class="text-2xl font-bold text-gray-900">Loading...</h2>
+                        <p id="application-id" class="text-sm text-gray-500">Application ID: Loading...</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span id="status-badge" class="px-3 py-1 rounded-full text-sm font-medium">Loading...</span>
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500">Progress</p>
+                            <p id="progress-text" class="text-lg font-semibold">0%</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Key Metrics -->
+            <div class="px-6 py-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-center">
+                        <p class="text-2xl font-bold text-blue-600" id="workflow-type">-</p>
+                        <p class="text-sm text-gray-500">Workflow</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-2xl font-bold text-green-600" id="agents-completed">0</p>
+                        <p class="text-sm text-gray-500">Agents Completed</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-2xl font-bold text-yellow-600" id="review-count">0</p>
+                        <p class="text-sm text-gray-500">Reviews Required</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-2xl font-bold text-purple-600" id="processing-time">-</p>
+                        <p class="text-sm text-gray-500">Processing Time</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Processing Timeline -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">Processing Timeline</h3>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div id="timeline" class="space-y-4">
+                            <!-- Timeline items will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent Results -->
+                <div class="bg-white rounded-lg shadow mt-6">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">Agent Results Summary</h3>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div id="agent-results" class="space-y-4">
+                            <!-- Agent results will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="space-y-6">
+                <!-- Human Review Interface -->
+                <div id="human-review-panel" class="bg-white rounded-lg shadow border-2 border-orange-200">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-orange-50">
+                        <h3 class="text-lg font-medium text-orange-900">🔍 Human Review Required</h3>
+                        <p class="text-sm text-orange-700 mt-1">Review the <span id="review-agent-name"></span> results and make a decision.</p>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div id="review-details" class="mb-4 p-4 bg-gray-50 rounded-lg">
+                            <!-- Review details will be populated here -->
+                        </div>
+                        <div class="space-y-3">
+                            <button id="approve-btn" class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-medium">
+                                ✓ Approve & Continue
+                            </button>
+                            <button id="reject-btn" class="w-full bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 font-medium">
+                                ✗ Reject Application
+                            </button>
+                            <textarea id="review-notes" placeholder="Add review notes (optional)" class="w-full p-3 border border-gray-300 rounded-md" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documents -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">Documents</h3>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div id="documents-list" class="space-y-2">
+                            <!-- Documents will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Findings -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">Key Findings</h3>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div id="key-findings" class="space-y-3">
+                            <!-- Key findings will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">Actions</h3>
+                    </div>
+                    <div class="px-6 py-4 space-y-3">
+                        <button id="resume-btn" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50">
+                            Resume Processing
+                        </button>
+                        <button id="export-btn" class="w-full bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                            Export Report
+                        </button>
+                        <a href="/processing" id="live-view-btn" class="block w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-center">
+                            Live Processing View
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let applicationId = null;
+        let applicationData = null;
+
+        // Get application ID from URL
+        function getApplicationId() {
+            const path = window.location.pathname;
+            const match = path.match(/\/application\/([^\/]+)/);
+            return match ? match[1] : null;
+        }
+
+        // Load application data
+        async function loadApplication() {
+            applicationId = getApplicationId();
+            if (!applicationId) {
+                alert('No application ID found');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/application-state/${applicationId}`);
+                if (!response.ok) throw new Error('Failed to load application');
+                
+                applicationData = await response.json();
+                renderApplication();
+                loadDocuments();
+            } catch (error) {
+                console.error('Error loading application:', error);
+                alert('Error loading application data');
+            }
+        }
+
+        // Render application data
+        function renderApplication() {
+            if (!applicationData) return;
+
+            // Header
+            document.getElementById('business-name').textContent = applicationData.business_name || 'Unknown Business';
+            document.getElementById('application-id').textContent = `Application ID: ${applicationData.application_id}`;
+            
+            // Status badge
+            const statusBadge = document.getElementById('status-badge');
+            const status = applicationData.status;
+            statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            statusBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(status)}`;
+            
+            // Progress
+            document.getElementById('progress-text').textContent = `${applicationData.progress_percentage || 0}%`;
+            
+            // Metrics
+            const workflowName = getWorkflowName(applicationData.workflow_pattern);
+            document.getElementById('workflow-type').textContent = workflowName;
+            
+            const agentResults = applicationData.agent_results || {};
+            // Count only actual agent names, not nested data structures
+            const knownAgents = ['document_processing', 'risk_assessment', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'communication', 'account_provisioning', 'market_qualification', 'lead_qualification', 'exception_routing', 'monitoring', 'optimization', 'onboarding_support'];
+            
+            let actualAgentCount = 0;
+            for (const key of Object.keys(agentResults)) {
+                if (knownAgents.includes(key)) {
+                    // Don't count agents that are currently under review
+                    if (applicationData.needs_review && applicationData.review_agent === key) {
+                        continue; // Skip this agent - it's under review, not completed
+                    }
+                    actualAgentCount++;
+                }
+            }
+            
+            // Handle decision vs decision_making mismatch
+            if (agentResults.decision && !agentResults.decision_making) {
+                // Don't count if decision_making is under review
+                if (!(applicationData.needs_review && applicationData.review_agent === 'decision_making')) {
+                    actualAgentCount += 1;
+                }
+            }
+            
+            document.getElementById('agents-completed').textContent = actualAgentCount;
+            
+            // Show review count based on actual review status
+            let reviewCount = 0;
+            if (applicationData.needs_review && applicationData.review_agent) {
+                reviewCount = 1; // Currently one agent needs review
+            }
+            document.getElementById('review-count').textContent = reviewCount;
+            
+            // Processing time
+            const created = new Date(applicationData.created_at);
+            const updated = new Date(applicationData.updated_at);
+            const diffMinutes = Math.round((updated - created) / (1000 * 60));
+            document.getElementById('processing-time').textContent = `${diffMinutes}m`;
+            
+            // Timeline
+            renderTimeline();
+            
+            // Agent results
+            renderAgentResults();
+            
+            // Key findings
+            renderKeyFindings();
+            
+            // Update action buttons
+            updateActionButtons();
+        }
+
+        // Get status color class
+        function getStatusColor(status) {
+            switch (status) {
+                case 'completed': case 'approved': return 'bg-green-100 text-green-800';
+                case 'processing': return 'bg-blue-100 text-blue-800';
+                case 'pending_human_review': return 'bg-yellow-100 text-yellow-800';
+                case 'declined': case 'failed': return 'bg-red-100 text-red-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        // Get workflow name
+        function getWorkflowName(pattern) {
+            switch (pattern) {
+                case 'express_workflow': return 'Express';
+                case 'standard_workflow': return 'Standard';
+                case 'comprehensive_workflow': return 'Comprehensive';
+                default: return 'Unknown';
+            }
+        }
+
+        // Render processing timeline
+        function renderTimeline() {
+            const timeline = document.getElementById('timeline');
+            const agentResults = applicationData.agent_results || {};
+            const currentAgent = applicationData.current_agent;
+            const needsReview = applicationData.needs_review;
+            const reviewAgent = applicationData.review_agent;
+            
+            // Define workflow stages
+            const workflowStages = {
+                'express_workflow': ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'],
+                'standard_workflow': ['document_processing', 'risk_assessment', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
+                'comprehensive_workflow': ['document_processing', 'risk_assessment', 'market_qualification', 'lead_qualification', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
+            };
+            
+            const stages = workflowStages[applicationData.workflow_pattern] || workflowStages['comprehensive_workflow'];
+            
+            timeline.innerHTML = stages.map(agent => {
+                // Handle decision_making vs decision key mismatch
+                let hasResult = agentResults[agent];
+                if (agent === 'decision_making' && !hasResult && agentResults.decision) {
+                    hasResult = agentResults.decision;
+                }
+                
+                const isReview = needsReview && reviewAgent === agent;
+                const isCurrent = currentAgent === agent;
+                
+                let statusClass = 'timeline-pending';
+                let statusText = 'Pending';
+                
+                if (isReview) {
+                    statusClass = 'timeline-review';
+                    statusText = 'Needs Review';
+                } else if (hasResult) {
+                    statusClass = 'timeline-completed';
+                    statusText = 'Completed';
+                } else if (isCurrent) {
+                    statusClass = 'timeline-review';
+                    statusText = 'Processing';
+                }
+                
+                return `
+                    <div class="timeline-item ${statusClass}">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-medium text-gray-900">${formatAgentName(agent)}</h4>
+                                <p class="text-sm text-gray-500">${statusText}</p>
+                            </div>
+                            <div class="text-sm text-gray-400">
+                                ${hasResult ? '✓' : isReview ? '⏳' : '○'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render agent results summary
+        function renderAgentResults() {
+            const container = document.getElementById('agent-results');
+            const agentResults = applicationData.agent_results || {};
+            
+            // Filter to only show actual AI agents
+            const realAgents = ['document_processing', 'risk_assessment', 'underwriting', 'compliance_verification', 'decision_making', 'data_validation', 'market_qualification', 'lead_qualification', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support'];
+            
+            // Define execution order for each workflow
+            const workflowOrder = {
+                'express_workflow': ['document_processing', 'risk_assessment', 'decision_making', 'account_provisioning'],
+                'standard_workflow': ['document_processing', 'risk_assessment', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'account_provisioning', 'communication'],
+                'comprehensive_workflow': ['document_processing', 'risk_assessment', 'market_qualification', 'lead_qualification', 'data_validation', 'underwriting', 'compliance_verification', 'decision_making', 'exception_routing', 'communication', 'account_provisioning', 'monitoring', 'optimization', 'onboarding_support']
+            };
+            
+            const executionOrder = workflowOrder[applicationData.workflow_pattern] || workflowOrder['comprehensive_workflow'];
+            
+            // Sort agents by execution order
+            let agentEntries = [];
+            executionOrder.forEach(agent => {
+                if (agentResults[agent]) {
+                    agentEntries.push([agent, agentResults[agent]]);
+                } else if (agent === 'decision_making' && agentResults.decision) {
+                    agentEntries.push(['decision_making', agentResults.decision]);
+                }
+            });
+            
+            if (agentEntries.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No agent results available yet.</p>';
+                return;
+            }
+            
+            container.innerHTML = agentEntries.map(([agent, result]) => {
+                const summary = getAgentSummary(agent, result);
+                const isUnderReview = applicationData.needs_review && applicationData.review_agent === agent;
+                const isSkipped = result && result.skipped === 'True';
+                
+                let statusBadge;
+                if (isUnderReview) {
+                    statusBadge = '<span class="text-sm text-yellow-600">⏳ Under Review</span>';
+                } else if (isSkipped) {
+                    statusBadge = '<span class="text-sm text-gray-600">⏭️ Skipped</span>';
+                } else {
+                    statusBadge = '<span class="text-sm text-green-600">✓ Completed</span>';
+                }
+                
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-medium text-gray-900">${formatAgentName(agent)}</h4>
+                            ${statusBadge}
+                        </div>
+                        <p class="text-sm text-gray-600">${summary}</p>
+                        <button onclick="showAgentDetails('${agent}')" class="mt-2 text-sm text-blue-600 hover:text-blue-800">
+                            View Details →
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Get agent result summary
+        function getAgentSummary(agent, result) {
+            if (!result || typeof result !== 'object') return 'Processing completed';
+            
+            // Handle skipped agents
+            if (result.skipped === 'True') {
+                const reason = result.reason || 'Unknown reason';
+                return `Skipped: ${reason.replace('_', ' ')}`;
+            }
+            
+            switch (agent) {
+                case 'document_processing':
+                    const docCount = result.processed_documents?.length || 0;
+                    return `Processed ${docCount} documents with OCR extraction`;
+                
+                case 'risk_assessment':
+                    const riskScore = result.risk_score || result.overall_risk_score || 'N/A';
+                    const riskTier = result.risk_tier || result.risk_category || 'Unknown';
+                    return `Risk Score: ${riskScore}, Category: ${riskTier}`;
+                
+                case 'underwriting':
+                    const creditScore = result.credit_score || 'N/A';
+                    const decision = result.underwriting_decision || result.decision || 'N/A';
+                    return `Credit Score: ${creditScore}, Decision: ${decision}`;
+                
+                case 'compliance_verification':
+                    const ofacClear = result.ofac_clear !== false ? 'Clear' : 'Hit';
+                    const kycStatus = result.kyc_verified !== false ? 'Verified' : 'Failed';
+                    return `OFAC: ${ofacClear}, KYC: ${kycStatus}`;
+                
+                case 'decision_making':
+                    const finalDecision = result.decision || result.final_decision || 'Pending';
+                    return `Final Decision: ${finalDecision}`;
+                
+                default:
+                    return result.summary || result.reasoning || 'Processing completed successfully';
+            }
+        }
+
+        // Render key findings
+        function renderKeyFindings() {
+            const container = document.getElementById('key-findings');
+            const agentResults = applicationData.agent_results || {};
+            const findings = [];
+            
+            // Extract key findings from agent results
+            Object.entries(agentResults).forEach(([agent, result]) => {
+                if (!result || typeof result !== 'object') return;
+                
+                switch (agent) {
+                    case 'risk_assessment':
+                        if (result.risk_tier === 'HIGH') {
+                            findings.push({ type: 'warning', text: 'High risk application detected' });
+                        }
+                        break;
+                    
+                    case 'compliance_verification':
+                        if (result.ofac_clear === false) {
+                            findings.push({ type: 'error', text: 'OFAC sanctions match found' });
+                        }
+                        if (result.kyc_verified === false) {
+                            findings.push({ type: 'warning', text: 'KYC verification failed' });
+                        }
+                        break;
+                    
+                    case 'underwriting':
+                        if (result.credit_score && result.credit_score < 600) {
+                            findings.push({ type: 'warning', text: 'Low credit score detected' });
+                        }
+                        break;
+                }
+            });
+            
+            if (applicationData.needs_review) {
+                findings.push({ type: 'info', text: 'Human review required' });
+            }
+            
+            if (findings.length === 0) {
+                findings.push({ type: 'success', text: 'No significant issues detected' });
+            }
+            
+            container.innerHTML = findings.map(finding => {
+                const colorClass = {
+                    'success': 'text-green-600 bg-green-50',
+                    'warning': 'text-yellow-600 bg-yellow-50',
+                    'error': 'text-red-600 bg-red-50',
+                    'info': 'text-blue-600 bg-blue-50'
+                }[finding.type];
+                
+                return `
+                    <div class="flex items-center space-x-2 p-2 rounded ${colorClass}">
+                        <span class="text-sm">${finding.text}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load documents
+        async function loadDocuments() {
+            try {
+                const response = await fetch(`/api/documents/${applicationId}`);
+                if (!response.ok) throw new Error('Failed to load documents');
+                
+                const data = await response.json();
+                renderDocuments(data.documents || []);
+            } catch (error) {
+                console.error('Error loading documents:', error);
+                document.getElementById('documents-list').innerHTML = '<p class="text-gray-500">No documents available</p>';
+            }
+        }
+
+        // Render documents
+        function renderDocuments(documents) {
+            const container = document.getElementById('documents-list');
+            
+            if (documents.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No documents uploaded</p>';
+                return;
+            }
+            
+            container.innerHTML = documents.map(doc => `
+                <div class="flex items-center justify-between p-2 border border-gray-200 rounded">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900">${doc.filename}</p>
+                        <p class="text-xs text-gray-500">${formatFileSize(doc.size)} • ${doc.type}</p>
+                    </div>
+                    <a href="${doc.preview_url}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm">
+                        View
+                    </a>
+                </div>
+            `).join('');
+        }
+
+        // Update action buttons and human review interface
+        function updateActionButtons() {
+            const resumeBtn = document.getElementById('resume-btn');
+            const liveViewBtn = document.getElementById('live-view-btn');
+            const humanReviewPanel = document.getElementById('human-review-panel');
+            
+            console.log('Application data:', applicationData);
+            console.log('Needs review:', applicationData.needs_review);
+            console.log('Review agent:', applicationData.review_agent);
+            console.log('Status:', applicationData.status);
+            
+            // Show/hide human review interface - check multiple conditions
+            const showReview = (applicationData.needs_review === true || applicationData.needs_review === 'true') && 
+                              applicationData.review_agent && 
+                              applicationData.status === 'pending_human_review';
+            
+            if (showReview) {
+                console.log('Showing human review panel');
+                humanReviewPanel.style.display = 'block';
+                resumeBtn.style.display = 'none';
+                
+                // Populate review interface
+                document.getElementById('review-agent-name').textContent = formatAgentName(applicationData.review_agent);
+                
+                const reviewDetails = document.getElementById('review-details');
+                const reviewData = applicationData.review_data || applicationData.agent_results[applicationData.review_agent];
+                
+                if (reviewData) {
+                    reviewDetails.innerHTML = `
+                        <h4 class="font-medium text-gray-900 mb-2">${formatAgentName(applicationData.review_agent)} Results</h4>
+                        <div class="text-sm text-gray-600">
+                            ${formatReviewData(applicationData.review_agent, reviewData)}
+                        </div>
+                    `;
+                } else {
+                    reviewDetails.innerHTML = '<p class="text-gray-500">No review data available</p>';
+                }
+                
+                // Set up review buttons
+                document.getElementById('approve-btn').onclick = () => submitReviewDecision('approved');
+                document.getElementById('reject-btn').onclick = () => submitReviewDecision('rejected');
+            } else {
+                humanReviewPanel.style.display = 'none';
+                resumeBtn.style.display = 'block';
+                
+                // Update resume button
+                if (applicationData.status === 'completed' || applicationData.status === 'approved' || applicationData.status === 'declined') {
+                    resumeBtn.disabled = true;
+                    resumeBtn.textContent = 'Processing Complete';
+                } else {
+                    resumeBtn.onclick = resumeApplication;
+                }
+            }
+            
+            // Update live view link
+            liveViewBtn.href = `/processing?app_id=${applicationId}`;
+        }
+
+        // Resume application processing
+        async function resumeApplication() {
+            try {
+                const response = await fetch(`/api/applications/${applicationId}/resume`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) throw new Error('Failed to resume application');
+                
+                const result = await response.json();
+                
+                if (result.needs_review) {
+                    window.location.href = '/review';
+                } else {
+                    alert('Application resumed successfully');
+                    window.location.href = `/processing?app_id=${applicationId}`;
+                }
+            } catch (error) {
+                console.error('Error resuming application:', error);
+                alert('Error resuming application');
+            }
+        }
+
+        // Show agent details modal
+        function showAgentDetails(agentName) {
+            let result = applicationData.agent_results[agentName];
+            
+            // Handle decision_making stored as 'decision'
+            if (agentName === 'decision_making' && !result && applicationData.agent_results.decision) {
+                result = applicationData.agent_results.decision;
+            }
+            
+            if (!result) {
+                alert('No details available for this agent');
+                return;
+            }
+            
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">${formatAgentName(agentName)} Details</h3>
+                    </div>
+                    <div class="px-6 py-4">
+                        <pre class="text-sm text-gray-600 whitespace-pre-wrap">${JSON.stringify(result, null, 2)}</pre>
+                    </div>
+                    <div class="px-6 py-4 border-t border-gray-200 text-right">
+                        <button onclick="this.closest('.fixed').remove()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        // Export report
+        function exportReport() {
+            const report = {
+                application_id: applicationId,
+                business_name: applicationData.business_name,
+                status: applicationData.status,
+                workflow_pattern: applicationData.workflow_pattern,
+                progress_percentage: applicationData.progress_percentage,
+                agent_results: applicationData.agent_results,
+                created_at: applicationData.created_at,
+                updated_at: applicationData.updated_at
+            };
+            
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `application_${applicationId}_report.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Utility functions
+        function formatAgentName(agent) {
+            return agent.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Format review data for display
+        function formatReviewData(agentName, reviewData) {
+            if (!reviewData || typeof reviewData !== 'object') return 'No details available';
+            
+            switch (agentName) {
+                case 'compliance_verification':
+                    return `
+                        <div class="space-y-2">
+                            <div><strong>OFAC Status:</strong> ${reviewData.sanctions_clear ? 'Clear' : 'Hit Detected'}</div>
+                            <div><strong>KYC Status:</strong> ${reviewData.kyc_status || 'Pending'}</div>
+                            <div><strong>AML Status:</strong> ${reviewData.aml_status || 'Pending'}</div>
+                            <div><strong>PEP Status:</strong> ${reviewData.pep_clear ? 'Clear' : 'Hit Detected'}</div>
+                            <div><strong>Compliance Score:</strong> ${reviewData.compliance_score || 'N/A'}</div>
+                            ${reviewData.agent_reasoning ? `<div class="mt-2"><strong>Analysis:</strong><br>${reviewData.agent_reasoning}</div>` : ''}
+                        </div>
+                    `;
+                case 'data_validation':
+                    return `
+                        <div class="space-y-2">
+                            <div><strong>Validation Score:</strong> ${reviewData.validation_score || 'N/A'}</div>
+                            <div><strong>Business Registry:</strong> ${reviewData.field_validations?.business_registry || 'Pending'}</div>
+                            <div><strong>Tax ID:</strong> ${reviewData.field_validations?.tax_id || 'Pending'}</div>
+                            <div><strong>Address:</strong> ${reviewData.field_validations?.address || 'Pending'}</div>
+                            ${reviewData.agent_reasoning ? `<div class="mt-2"><strong>Analysis:</strong><br>${reviewData.agent_reasoning}</div>` : ''}
+                        </div>
+                    `;
+                case 'underwriting':
+                    return `
+                        <div class="space-y-2">
+                            <div><strong>Decision:</strong> ${reviewData.underwriting_decision || 'N/A'}</div>
+                            <div><strong>Credit Score:</strong> ${reviewData.credit_score || 'N/A'}</div>
+                            <div><strong>Credit Limit:</strong> ${reviewData.credit_limit || 'N/A'}</div>
+                            <div><strong>Pricing Tier:</strong> ${reviewData.pricing_tier || 'N/A'}</div>
+                            <div><strong>Confidence:</strong> ${reviewData.confidence_score || 'N/A'}</div>
+                            ${reviewData.risk_factors ? `<div><strong>Risk Factors:</strong> ${reviewData.risk_factors.join(', ')}</div>` : ''}
+                            ${reviewData.analysis ? `<div class="mt-2"><strong>Analysis:</strong><br>${reviewData.analysis}</div>` : ''}
+                        </div>
+                    `;
+                default:
+                    return `
+                        <div class="space-y-2">
+                            ${reviewData.summary ? `<div><strong>Summary:</strong> ${reviewData.summary}</div>` : ''}
+                            ${reviewData.reasoning ? `<div><strong>Reasoning:</strong> ${reviewData.reasoning}</div>` : ''}
+                            ${reviewData.agent_reasoning ? `<div><strong>Analysis:</strong> ${reviewData.agent_reasoning}</div>` : ''}
+                            <div class="mt-2"><strong>Status:</strong> Requires Manual Review</div>
+                        </div>
+                    `;
+            }
+        }
+
+        // Submit review decision
+        async function submitReviewDecision(decision) {
+            const notes = document.getElementById('review-notes').value;
+            
+            try {
+                const response = await fetch(`/api/applications/${applicationId}/review-decision`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        decision: decision,
+                        notes: notes,
+                        reviewer: 'human_reviewer'
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Failed to submit review decision');
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Application ${decision} successfully`);
+                    
+                    if (decision === 'approved') {
+                        // Redirect to processing view to see workflow continue
+                        window.location.href = `/processing?app_id=${applicationId}`;
+                    } else {
+                        // Reload to show updated status
+                        window.location.reload();
+                    }
+                } else {
+                    alert('Error submitting review decision');
+                }
+            } catch (error) {
+                console.error('Error submitting review decision:', error);
+                alert('Error submitting review decision');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('export-btn').onclick = exportReport;
+
+        // Initialize
+        loadApplication();
+    </script>
+</body>
+</html>

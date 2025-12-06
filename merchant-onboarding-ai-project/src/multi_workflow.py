@@ -14,9 +14,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'database'))
 AGENT_REVIEW_CONFIG = {
     # Set to True to require human review, False to auto-approve
     'document_processing': False,  # Auto-approve for routing phase
-    'data_validation': False,   # Auto-approve to prevent multiple reviews
+    'data_validation': True,    # Enable human review
+    'underwriting': True,       # Enable human review
     'risk_assessment': False,  # Auto-approve for routing phase
-    'compliance_verification': True,  # Only one agent requires review
+    'compliance_verification': True,  # Enable human review
     'decision_making': False,   # Auto-approve
     'account_provisioning': False,
     'communication': False,
@@ -49,22 +50,26 @@ def create_agent_wrapper(agent_func, agent_name):
     """Wrapper to add progress tracking and human review to agents"""
     async def wrapped_agent(state):
         try:
-            # Check if agent already completed in routing phase
+            # Check if agent already completed (from preserved state or routing phase)
+            import builtins
+            completed_agents = {}
+            
+            # Get completed agents from multiple sources
+            if hasattr(builtins, 'preserved_completed_agents'):
+                completed_agents.update(builtins.preserved_completed_agents)
             if hasattr(state, 'application_data') and state.application_data:
-                completed_agents = state.application_data.get('completed_agents', {})
-                if agent_name in completed_agents and completed_agents[agent_name]:
-                    print(f"\n[{agent_name.upper()}] *** SKIPPING - ALREADY COMPLETED IN ROUTING PHASE ***", flush=True)
-                    # Return existing result and update state
-                    existing_result = completed_agents[agent_name]
-                    setattr(state, agent_name, existing_result)
-                    
-                    # Emit progress for UI consistency - both starting and completed
-                    import builtins
-                    if hasattr(builtins, 'current_progress_callback') and builtins.current_progress_callback:
-                        builtins.current_progress_callback(agent_name, 'starting', existing_result)
-                        builtins.current_progress_callback(agent_name, 'completed', existing_result)
-                    
-                    return state
+                completed_agents.update(state.application_data.get('completed_agents', {}))
+            
+            if agent_name in completed_agents and completed_agents[agent_name]:
+                print(f"\n[{agent_name.upper()}] *** SKIPPING - ALREADY COMPLETED ***", flush=True)
+                existing_result = completed_agents[agent_name]
+                setattr(state, agent_name, existing_result)
+                
+                # Emit progress for UI consistency
+                if hasattr(builtins, 'current_progress_callback') and builtins.current_progress_callback:
+                    builtins.current_progress_callback(agent_name, 'completed', existing_result)
+                
+                return state
             
             print(f"\n[{agent_name.upper()}] *** STARTING AGENT EXECUTION ***", flush=True)
             print(f"[{agent_name.upper()}] Processing merchant application...", flush=True)
@@ -73,57 +78,15 @@ def create_agent_wrapper(agent_func, agent_name):
             current_app_id = state.application_id
             print(f"[{agent_name.upper()}] Processing app_id: {current_app_id}")
             
-            # Reset review status for this agent (only if review required)
-            if requires_human_review(agent_name):
-                try:
-                    from models import MerchantApplication, SessionLocal
-                    
-                    session = SessionLocal()
-                    app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
-                    if app:
-                        app.needs_review = 'true'  # Reset for this agent
-                        app.review_agent = agent_name
-                        session.commit()
-                        print(f"[{agent_name.upper()}] Reset review status for new agent")
-                    else:
-                        print(f"[{agent_name.upper()}] WARNING: App {current_app_id} not found during reset")
-                    session.close()
-                except Exception as e:
-                    print(f"[{agent_name.upper()}] Error resetting review status: {e}")
-            else:
-                print(f"[{agent_name.upper()}] Skipping review setup - auto-approved agent")
+            print(f"[{agent_name.upper()}] Starting agent execution...")
             
-            # ALWAYS emit progress update and save to database for ALL agents
+            # Emit starting progress
             import builtins
             if hasattr(builtins, 'current_progress_callback') and builtins.current_progress_callback:
                 builtins.current_progress_callback(agent_name, 'starting', {})
             
-            # ALWAYS save to database directly for ALL agents
-            try:
-                from models import MerchantApplication, SessionLocal
-                from datetime import datetime
-                session = SessionLocal()
-                app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
-                if app:
-                    app.current_agent = agent_name
-                    app.updated_at = datetime.now()
-                    session.commit()
-                session.close()
-            except Exception as e:
-                print(f"[{agent_name.upper()}] Error updating start status: {e}")
-            
             result = await agent_func(state)
             print(f"[{agent_name.upper()}] *** AGENT COMPLETED SUCCESSFULLY ***", flush=True)
-            if requires_human_review(agent_name):
-                print(f"[{agent_name.upper()}] Results generated - PAUSING FOR HUMAN REVIEW\n", flush=True)
-            else:
-                print(f"[{agent_name.upper()}] Results generated - AUTO-APPROVED\n", flush=True)
-            
-            # Update agents_executed list
-            if hasattr(result, 'agents_executed'):
-                result.agents_executed.append(agent_name)
-            elif hasattr(state, 'agents_executed'):
-                state.agents_executed.append(agent_name)
             
             # Extract actual agent result first
             if hasattr(result, agent_name):
@@ -134,26 +97,43 @@ def create_agent_wrapper(agent_func, agent_name):
                 # Fallback - use the entire result if agent-specific result not found
                 agent_result = result.__dict__ if hasattr(result, '__dict__') else result
             
-            # ALWAYS save completed result to database for ALL agents
+            # CRITICAL: Save agent result IMMEDIATELY after completion, BEFORE any review logic
             try:
-                from models import MerchantApplication, SessionLocal
+                # Use exact same imports as app.py
+                import sys
+                import os
+                sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'database'))
+                from models import SessionLocal as Session
                 from datetime import datetime
-                session = SessionLocal()
+                
+                session = Session()
+                from models import MerchantApplication
                 app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
                 if app:
+                    # Force refresh to get latest data
+                    session.refresh(app)
                     current_results = app.agent_results or {}
                     current_results[agent_name] = agent_result
+                    
+                    # Force update by setting to None first, then back
+                    app.agent_results = None
+                    session.flush()
                     app.agent_results = current_results
                     app.current_agent = agent_name
                     app.updated_at = datetime.now()
                     session.commit()
-                    print(f"[{agent_name.upper()}] Saved agent result to database")
+                    print(f"[{agent_name.upper()}] *** SAVED {agent_name} result to database BEFORE review logic ***")
+                    print(f"[{agent_name.upper()}] Total agent results now: {len(current_results)} agents")
+                    print(f"[{agent_name.upper()}] Agent keys: {list(current_results.keys())}")
+                else:
+                    print(f"[{agent_name.upper()}] ERROR: Application {current_app_id} not found in database!")
                 session.close()
             except Exception as e:
-                print(f"[{agent_name.upper()}] Error saving result: {e}")
+                print(f"[{agent_name.upper()}] CRITICAL ERROR saving result: {e}")
+                import traceback
+                print(f"[{agent_name.upper()}] Traceback: {traceback.format_exc()}")
             
             # ALWAYS emit completed status for ALL agents
-            import builtins
             if hasattr(builtins, 'current_progress_callback') and builtins.current_progress_callback:
                 builtins.current_progress_callback(agent_name, 'completed', agent_result)
             
@@ -170,28 +150,18 @@ def create_agent_wrapper(agent_func, agent_name):
                 state.review_data = agent_result
                 state.status = ApplicationStatus.PENDING_HUMAN_REVIEW
                 
-                # Add to review queue
+                # Save review required status to database (agent result already saved above)
                 try:
-                    await add_to_review_queue(state.application_id, agent_name, agent_result)
-                except Exception as e:
-                    print(f"[{agent_name.upper()}] Error adding to review queue: {e}")
-                
-                # Save review required status to database
-                try:
-                    from models import MerchantApplication, SessionLocal
-                    from datetime import datetime
-                    session = SessionLocal()
+                    session = Session()
                     app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
                     if app:
-                        current_results = app.agent_results or {}
-                        current_results[agent_name] = agent_result
-                        app.agent_results = current_results
                         app.needs_review = 'true'
                         app.review_agent = agent_name
                         app.review_data = agent_result
+                        app.status = 'pending_human_review'
                         app.updated_at = datetime.now()
                         session.commit()
-                        print(f"[{agent_name.upper()}] Saved review required status")
+                        print(f"[{agent_name.upper()}] Set review required status")
                     session.close()
                 except Exception as e:
                     print(f"[{agent_name.upper()}] Error saving review status: {e}")
@@ -236,9 +206,7 @@ def create_agent_wrapper(agent_func, agent_name):
                 
                 # Check final status after event is triggered
                 try:
-                    from models import MerchantApplication, SessionLocal
-                    
-                    session = SessionLocal()
+                    session = Session()
                     app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
                     
                     if app and app.status == 'declined':
@@ -257,9 +225,7 @@ def create_agent_wrapper(agent_func, agent_name):
                 finally:
                     # Clear review status after approval but keep event for next agent
                     try:
-                        from models import MerchantApplication, SessionLocal
-                        from datetime import datetime
-                        session = SessionLocal()
+                        session = Session()
                         app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
                         if app:
                             app.needs_review = 'false'
@@ -285,9 +251,7 @@ def create_agent_wrapper(agent_func, agent_name):
                 
                 # Clear review status in database for auto-approved agents
                 try:
-                    from models import MerchantApplication, SessionLocal
-                    from datetime import datetime
-                    session = SessionLocal()
+                    session = Session()
                     app = session.query(MerchantApplication).filter_by(id=current_app_id).first()
                     if app:
                         app.needs_review = 'false'
@@ -397,7 +361,7 @@ def create_express_workflow():
     return workflow.compile()
 
 def create_standard_workflow():
-    """6-8 agent workflow for medium-risk merchants"""
+    """7-8 agent workflow for medium-risk merchants"""
     workflow = StateGraph(MerchantOnboardingState)
     
     # Load required agents
@@ -408,6 +372,10 @@ def create_standard_workflow():
     data_validation_agent = load_agent(
         os.path.join(base_path, 'agents', 'data-validation', 'src', 'agent.py'),
         'data_validation_agent'
+    )
+    underwriting_agent = load_agent(
+        os.path.join(base_path, 'agents', 'underwriting', 'src', 'agent.py'),
+        'underwriting_agent'
     )
     risk_assessment_agent = load_agent(
         os.path.join(base_path, 'agents', 'risk-assessment', 'src', 'agent.py'),
@@ -433,6 +401,7 @@ def create_standard_workflow():
     # Add nodes with progress tracking
     workflow.add_node("document_processing", create_agent_wrapper(document_processing_agent, "document_processing"))
     workflow.add_node("data_validation", create_agent_wrapper(data_validation_agent, "data_validation"))
+    workflow.add_node("underwriting", create_agent_wrapper(underwriting_agent, "underwriting"))
     workflow.add_node("risk_assessment", create_agent_wrapper(risk_assessment_agent, "risk_assessment"))
     workflow.add_node("compliance_verification", create_agent_wrapper(compliance_verification_agent, "compliance_verification"))
     workflow.add_node("decision_making", create_agent_wrapper(decision_making_agent, "decision_making"))
@@ -443,7 +412,8 @@ def create_standard_workflow():
     workflow.set_entry_point("document_processing")
     workflow.add_edge("document_processing", "risk_assessment")
     workflow.add_edge("risk_assessment", "data_validation")
-    workflow.add_edge("data_validation", "compliance_verification")
+    workflow.add_edge("data_validation", "underwriting")
+    workflow.add_edge("underwriting", "compliance_verification")
     workflow.add_edge("compliance_verification", "decision_making")
     workflow.add_edge("decision_making", "account_provisioning")
     workflow.add_edge("account_provisioning", "communication")
@@ -452,7 +422,7 @@ def create_standard_workflow():
     return workflow.compile()
 
 def create_comprehensive_workflow():
-    """12 agent document-first workflow for high-risk merchants"""
+    """14 agent document-first workflow for high-risk merchants"""
     workflow = StateGraph(MerchantOnboardingState)
     
     # Load agents in document-first order (removed application_assistant)
@@ -471,6 +441,10 @@ def create_comprehensive_workflow():
     data_validation_agent = load_agent(
         os.path.join(base_path, 'agents', 'data-validation', 'src', 'agent.py'),
         'data_validation_agent'
+    )
+    underwriting_agent = load_agent(
+        os.path.join(base_path, 'agents', 'underwriting', 'src', 'agent.py'),
+        'underwriting_agent'
     )
     risk_assessment_agent = load_agent(
         os.path.join(base_path, 'agents', 'risk-assessment', 'src', 'agent.py'),
@@ -514,6 +488,7 @@ def create_comprehensive_workflow():
     workflow.add_node("market_qualification", create_agent_wrapper(market_qualification_agent, "market_qualification"))
     workflow.add_node("lead_qualification", create_agent_wrapper(lead_qualification_agent, "lead_qualification"))
     workflow.add_node("data_validation", create_agent_wrapper(data_validation_agent, "data_validation"))
+    workflow.add_node("underwriting", create_agent_wrapper(underwriting_agent, "underwriting"))
     workflow.add_node("risk_assessment", create_agent_wrapper(risk_assessment_agent, "risk_assessment"))
     workflow.add_node("compliance_verification", create_agent_wrapper(compliance_verification_agent, "compliance_verification"))
     workflow.add_node("decision_making", create_agent_wrapper(decision_making_agent, "decision_making"))
@@ -524,13 +499,14 @@ def create_comprehensive_workflow():
     workflow.add_node("optimization", create_agent_wrapper(optimization_agent, "optimization"))
     workflow.add_node("onboarding_support", create_agent_wrapper(onboarding_support_agent, "onboarding_support"))
     
-    # Define document-first 12-agent flow with risk assessment early
+    # Define document-first 14-agent flow with risk assessment early
     workflow.set_entry_point("document_processing")
     workflow.add_edge("document_processing", "risk_assessment")
     workflow.add_edge("risk_assessment", "market_qualification")
     workflow.add_edge("market_qualification", "lead_qualification")
     workflow.add_edge("lead_qualification", "data_validation")
-    workflow.add_edge("data_validation", "compliance_verification")
+    workflow.add_edge("data_validation", "underwriting")
+    workflow.add_edge("underwriting", "compliance_verification")
     workflow.add_edge("compliance_verification", "decision_making")
     workflow.add_edge("decision_making", "exception_routing")
     workflow.add_edge("exception_routing", "communication")

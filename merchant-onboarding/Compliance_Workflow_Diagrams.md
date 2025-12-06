@@ -387,6 +387,66 @@ flowchart LR
     style RA2 fill:#ff5252
 ```
 
+## Underwriting Agent Workflow (As Implemented)
+
+```mermaid
+flowchart TD
+    A[Underwriting Agent] --> B[LLM Agent with Tools]
+    B --> C[Financial Analysis Tool]
+    B --> D[Credit Scoring Tool]
+    B --> E[Risk Assessment Tool]
+    
+    C --> F[Revenue Analysis]
+    C --> G[Cash Flow Analysis]
+    C --> H[Debt-to-Income Ratio]
+    
+    D --> I[Credit Score Calculation]
+    I --> J{Credit Score Range}
+    J -->|300-579| K[Poor Credit]
+    J -->|580-669| L[Fair Credit]
+    J -->|670-739| M[Good Credit]
+    J -->|740-799| N[Very Good Credit]
+    J -->|800-850| O[Excellent Credit]
+    
+    E --> P[Industry Risk Factor]
+    E --> Q[Business Age Factor]
+    E --> R[Financial Stability]
+    
+    F --> S[Credit Limit Calculation]
+    G --> S
+    H --> S
+    I --> S
+    P --> S
+    Q --> S
+    R --> S
+    
+    S --> T{Underwriting Decision}
+    T -->|High Risk| U[DECLINE]
+    T -->|Medium Risk| V[CONDITIONAL]
+    T -->|Low Risk| W[APPROVE]
+    
+    K --> X[Risk-Based Pricing: High]
+    L --> Y[Risk-Based Pricing: Medium-High]
+    M --> Z[Risk-Based Pricing: Medium]
+    N --> AA[Risk-Based Pricing: Low]
+    O --> BB[Risk-Based Pricing: Lowest]
+    
+    U --> CC[Underwriting Results]
+    V --> CC
+    W --> CC
+    X --> CC
+    Y --> CC
+    Z --> CC
+    AA --> CC
+    BB --> CC
+    
+    style U fill:#ff5252
+    style V fill:#fff9c4
+    style W fill:#c8e6c9
+    style K fill:#ffcdd2
+    style L fill:#fff9c4
+```
+
 ## Basic Risk Scoring (Development Implementation)
 
 ```mermaid
@@ -510,7 +570,8 @@ flowchart LR
 
 **Production Requirements Still Needed:**
 - Real OFAC/KYC/AML API integrations ($500K+ annual costs)
-- Enterprise security infrastructure
+- Real credit bureau integrations (Experian, Equifax, TransUnion)
+- Enterprise underwriting models and risk algorithms
 - Production database with encryption
 - Compliance certifications (SOC 2, PCI DSS)
 - Professional audit logging and SIEM
