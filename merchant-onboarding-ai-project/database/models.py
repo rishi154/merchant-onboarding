@@ -19,6 +19,7 @@ class MerchantApplication(Base):
     application_data = Column(JSON)
     extracted_data = Column(JSON)
     agent_results = Column(JSON)
+    agent_summaries = Column(JSON)  # Store pre-generated summaries
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)

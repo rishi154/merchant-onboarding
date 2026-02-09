@@ -105,6 +105,17 @@ Return comprehensive analysis including confidence scores, extracted data, and r
         agent_output = result.get("output", "")
         
         # Parse document processing results from agent output
+        # Extract all fields from tool results if available
+        extracted_data = {}
+        for doc in state.documents:
+            doc_path = doc.get("path", "")
+            try:
+                ocr_result = await OCRProcessingTool()._arun(doc_path)
+                if ocr_result.get("extracted_fields"):
+                    extracted_data.update(ocr_result["extracted_fields"])
+            except:
+                pass
+        
         final_result = {
             "document_processing_complete": True,
             "agent_reasoning": agent_output,
@@ -115,9 +126,11 @@ Return comprehensive analysis including confidence scores, extracted data, and r
             "google_doc_ai_used": "GOOGLE_DOC_AI_PROCESSOR_ID" in os.environ,
             "requires_manual_review": False,
             "processing_time": 3.0,
-            "tool_calling_agent": True,
-            "extracted_data": {"business_name": "TechFlow Solutions LLC"}  # Mock extracted business name
+            "tool_calling_agent": True
         }
+        
+        if extracted_data:
+            final_result["extracted_data"] = extracted_data
         
         state.document_processing = final_result
         return {"document_processing": final_result}

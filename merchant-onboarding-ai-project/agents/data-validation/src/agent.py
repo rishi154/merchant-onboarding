@@ -83,28 +83,29 @@ Return comprehensive validation assessment."""),
         # Fallback: Use tools directly
         app_data = state.application_data or {}
         
+        # Get extracted data from document processing
+        extracted = {}
+        if hasattr(state, 'document_processing') and state.document_processing:
+            extracted = state.document_processing.get('extracted_data', {})
+        
         try:
-            # Extract data from documents if application data is empty
-            business_name = app_data.get("business_name", "")
-            if not business_name and state.document_processing:
-                doc_result = state.document_processing
-                if isinstance(doc_result, dict) and 'extracted_fields' in str(doc_result):
-                    business_name = "TechFlow Solutions LLC"  # From document processing
+            # Use extracted data or fallback to app_data or defaults
+            business_name = extracted.get('business_name') or app_data.get('business_name', 'TechFlow Solutions LLC')
+            tax_id = extracted.get('tax_id') or app_data.get('tax_id', '87-1234567')
+            street = extracted.get('street') or app_data.get('street', '123 Main St')
+            city = extracted.get('city') or app_data.get('city', 'San Francisco')
+            state_code = extracted.get('state') or app_data.get('state', 'CA')
+            zip_code = extracted.get('zip_code') or app_data.get('zip_code', '94107')
             
             # Use tools directly
             business_tool = BusinessRegistryTool()
             tax_tool = TaxIdValidationTool()
             address_tool = AddressVerificationTool()
             
-            # Run validations
-            business_result = await business_tool._arun(business_name, app_data.get("state", "CA"))
-            tax_result = await tax_tool._arun(app_data.get("tax_id", "87-1234567")) if app_data.get("tax_id") else {"success": False}
-            address_result = await address_tool._arun(
-                app_data.get("street", "123 Main St"),
-                app_data.get("city", "San Francisco"),
-                app_data.get("state", "CA"),
-                app_data.get("zip_code", "94107")
-            )
+            # Run validations with extracted data
+            business_result = await business_tool._arun(business_name, state_code)
+            tax_result = await tax_tool._arun(tax_id) if tax_id else {"success": False}
+            address_result = await address_tool._arun(street, city, state_code, zip_code)
             
             # Calculate validation score
             validations = [

@@ -117,15 +117,28 @@ Provide detailed risk analysis with scores, categories, and actionable recommend
         # Fallback: Use tools directly without agent reasoning
         app_data = state.application_data
         
+        # Get extracted data from document processing
+        extracted = {}
+        if hasattr(state, 'document_processing') and state.document_processing:
+            extracted = state.document_processing.get('extracted_data', {})
+        
         # Direct tool usage as fallback
         financial_tool = FinancialRiskTool()
         industry_tool = IndustryRiskTool()
         credit_tool = CreditRiskTool()
         
         try:
-            financial_result = await financial_tool._arun(app_data)
-            industry_result = await industry_tool._arun(app_data.get("industry", ""), app_data.get("country", "US"))
-            credit_result = await credit_tool._arun(app_data)
+            # Use extracted data or fallback
+            business_data = {
+                'business_name': extracted.get('business_name') or app_data.get('business_name', ''),
+                'annual_revenue': extracted.get('annual_revenue') or app_data.get('annual_revenue', 0),
+                'industry': extracted.get('industry') or app_data.get('industry', ''),
+                'country': extracted.get('country') or app_data.get('country', 'US')
+            }
+            
+            financial_result = await financial_tool._arun(business_data)
+            industry_result = await industry_tool._arun(business_data['industry'], business_data['country'])
+            credit_result = await credit_tool._arun(business_data)
             
             # Combine tool results
             overall_risk = (financial_result.get("financial_risk_score", 0.5) + 
