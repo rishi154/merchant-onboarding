@@ -641,15 +641,79 @@
                 return;
             }
             
+            // Get summary from stored summaries or generate fallback
+            let summaryHTML;
+            if (applicationData.agent_summaries && applicationData.agent_summaries[agentName]) {
+                summaryHTML = applicationData.agent_summaries[agentName];
+            } else {
+                summaryHTML = generateClientFallback(agentName, result);
+            }
+            
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
             modal.innerHTML = `
-                <div class="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+                <div class="bg-white rounded-lg max-w-3xl w-full mx-4 max-h-[80vh] overflow-y-auto">
                     <div class="px-6 py-4 border-b border-gray-200">
                         <h3 class="text-lg font-medium text-gray-900">${formatAgentName(agentName)} Details</h3>
                     </div>
                     <div class="px-6 py-4">
-                        <pre class="text-sm text-gray-600 whitespace-pre-wrap">${JSON.stringify(result, null, 2)}</pre>
+                        ${summaryHTML}
+                    </div>
+                    <div class="px-6 py-4 border-t border-gray-200 flex justify-between">
+                        <button onclick="showRawJSON('${agentName}')" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                            View Raw JSON
+                        </button>
+                        <button onclick="this.closest('.fixed').remove()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        function generateClientFallback(agentName, data) {
+            let html = `<div class="space-y-3"><h4 class="font-semibold text-gray-800">${agentName.replace(/_/g, ' ').toUpperCase()}</h4>`;
+            
+            if (typeof data === 'object' && data !== null) {
+                for (const [key, value] of Object.entries(data)) {
+                    if (key.startsWith('_') || typeof value === 'object') continue;
+                    
+                    const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    let colorClass = '';
+                    
+                    if (key.includes('error') || key.includes('fail') || value === false) {
+                        colorClass = 'text-red-600';
+                    } else if (key.includes('success') || key.includes('pass') || key.includes('clear') || value === true) {
+                        colorClass = 'text-green-600';
+                    } else if (key.includes('warning') || key.includes('risk')) {
+                        colorClass = 'text-yellow-600';
+                    }
+                    
+                    html += `<p class="${colorClass}"><strong>${formattedKey}:</strong> ${value}</p>`;
+                }
+            }
+            
+            html += '</div>';
+            return html;
+        }
+
+        // Show raw JSON in modal
+        function showRawJSON(agentName) {
+            let result = applicationData.agent_results[agentName];
+            if (agentName === 'decision_making' && !result && applicationData.agent_results.decision) {
+                result = applicationData.agent_results.decision;
+            }
+            
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg max-w-3xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">${formatAgentName(agentName)} - Raw JSON</h3>
+                    </div>
+                    <div class="px-6 py-4">
+                        <pre class="text-sm text-gray-600 whitespace-pre-wrap bg-gray-50 p-4 rounded">${JSON.stringify(result, null, 2)}</pre>
                     </div>
                     <div class="px-6 py-4 border-t border-gray-200 text-right">
                         <button onclick="this.closest('.fixed').remove()" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">

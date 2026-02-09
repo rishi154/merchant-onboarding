@@ -148,6 +148,7 @@
         let reviewPanel = null;
         let currentAppId = null;
         let pipelineStages = [];
+        let applicationData = null;  // Store application data globally
         
         // Workflow stages will be fetched dynamically from backend
         let workflowStages = {};
@@ -678,6 +679,7 @@
 
             // Create expandable agent result display
             const hasResults = data.agent_results && Object.keys(data.agent_results).length > 0;
+            const detailsId = `details-${uniqueId}`;
             
             agentDiv.innerHTML = `
                 <div class="flex justify-between items-center cursor-pointer" onclick="toggleAgentDetails('${uniqueId}')">
@@ -691,12 +693,20 @@
                         <span class="ml-2">▼</span>
                     </div>
                 </div>
-                <div id="details-${uniqueId}" class="mt-3 p-3 bg-gray-50 rounded hidden">
+                <div id="${detailsId}" class="mt-3 p-3 bg-gray-50 rounded hidden">
                     ${hasResults ? formatAgentResult(data.agent_name, data.agent_results[data.agent_name] || data.agent_results) : '<p class="text-gray-500">No detailed results available</p>'}
                 </div>
             `;
 
             historyContainer.appendChild(agentDiv);
+            
+            // Load summary from application data if available
+            if (hasResults && applicationData && applicationData.agent_summaries && applicationData.agent_summaries[data.agent_name]) {
+                const summaryDiv = document.getElementById(detailsId);
+                if (summaryDiv) {
+                    summaryDiv.innerHTML = applicationData.agent_summaries[data.agent_name];
+                }
+            }
         }
         
         function updateAgentEntry(agentDiv, data) {
@@ -741,6 +751,9 @@
                 }
                 
                 console.log('Loaded application state:', app);
+                
+                // Store application data globally for summary access
+                applicationData = app;
                 
                 // Update basic info
                 document.getElementById('business-name').textContent = app.business_name || 'Processing...';
@@ -947,9 +960,15 @@
             console.log('Showing review panel for:', agentName);
             document.getElementById('review-agent-name').textContent = agentName;
             
-            // Format review data in human-readable way
-            let summary = formatAgentResult(agentName, reviewData);
-            document.getElementById('agent-result-summary').innerHTML = summary;
+            const summaryContainer = document.getElementById('agent-result-summary');
+            
+            // Load summary from application data if available
+            if (applicationData && applicationData.agent_summaries && applicationData.agent_summaries[agentName]) {
+                summaryContainer.innerHTML = applicationData.agent_summaries[agentName];
+            } else {
+                summaryContainer.innerHTML = generateClientFallback(agentName, reviewData);
+            }
+            
             document.getElementById('review-panel').style.display = 'block';
         }
         
@@ -961,254 +980,30 @@
         }
         
         function formatAgentResult(agentName, data) {
-            let html = '<div class="space-y-3">';
+            return generateClientFallback(agentName, data);
+        }
+        
+        function generateClientFallback(agentName, data) {
+            let html = `<div class="space-y-3"><h4 class="font-semibold text-gray-800">${agentName.replace(/_/g, ' ').toUpperCase()}</h4>`;
             
-            // Agent-specific formatting
-            if (agentName === 'document_processing') {
-                html += '<h4 class="font-semibold text-gray-800">📄 Document Processing Results</h4>';
-                
-                // Extract nested agent_result if present
-                const result = data.agent_result || data;
-                
-                if (result.document_processing_complete) {
-                    html += `<p class="text-green-600">✅ <strong>Processing Status:</strong> Successfully completed</p>`;
-                }
-                if (result.documents_processed) {
-                    html += `<p><strong>Documents Processed:</strong> ${result.documents_processed} documents</p>`;
-                }
-                if (result.overall_confidence) {
-                    const confidence = Math.round(result.overall_confidence * 100);
-                    const confidenceColor = confidence >= 80 ? 'text-green-600' : confidence >= 60 ? 'text-yellow-600' : 'text-red-600';
-                    html += `<p class="${confidenceColor}"><strong>Confidence Level:</strong> ${confidence}% (${confidence >= 80 ? 'High' : confidence >= 60 ? 'Medium' : 'Low'})</p>`;
-                }
-                if (result.fraud_risk) {
-                    const riskColor = result.fraud_risk === 'low' ? 'text-green-600' : result.fraud_risk === 'medium' ? 'text-yellow-600' : 'text-red-600';
-                    html += `<p class="${riskColor}"><strong>Fraud Risk:</strong> ${result.fraud_risk.toUpperCase()}</p>`;
-                }
-                if (result.tools_used && result.tools_used.length > 0) {
-                    html += `<p><strong>Tools Used:</strong> ${result.tools_used.map(tool => tool.replace('_', ' ')).join(', ')}</p>`;
-                }
-                if (result.processing_time) {
-                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
-                }
-                if (result.requires_manual_review !== undefined) {
-                    const reviewStatus = result.requires_manual_review ? 'Required' : 'Not Required';
-                    const reviewColor = result.requires_manual_review ? 'text-orange-600' : 'text-green-600';
-                    html += `<p class="${reviewColor}"><strong>Manual Review:</strong> ${reviewStatus}</p>`;
-                }
-                if (result.agent_reasoning) {
-                    html += `<p><strong>Agent Notes:</strong> ${result.agent_reasoning}</p>`;
-                }
-            } else if (agentName === 'risk_assessment') {
-                html += '<h4 class="font-semibold text-gray-800">⚠️ Risk Assessment Results</h4>';
-                
-                const result = data.agent_result || data;
-                
-                if (result.risk_score) {
-                    const riskColor = result.risk_score < 30 ? 'text-green-600' : result.risk_score < 70 ? 'text-yellow-600' : 'text-red-600';
-                    html += `<p class="${riskColor}"><strong>Risk Score:</strong> ${result.risk_score}/100</p>`;
-                }
-                if (result.risk_category) {
-                    const categoryColor = result.risk_category.toLowerCase() === 'low' ? 'text-green-600' : result.risk_category.toLowerCase() === 'medium' ? 'text-yellow-600' : 'text-red-600';
-                    html += `<p class="${categoryColor}"><strong>Risk Level:</strong> ${result.risk_category.toUpperCase()}</p>`;
-                }
-                if (result.credit_score) {
-                    html += `<p><strong>Credit Score:</strong> ${result.credit_score}</p>`;
-                }
-                if (result.factors && result.factors.length > 0) {
-                    html += `<p><strong>Risk Factors:</strong> ${result.factors.length} identified</p>`;
-                    html += `<ul class="ml-4 list-disc">${result.factors.map(factor => `<li>${factor}</li>`).join('')}</ul>`;
-                }
-            } else if (agentName === 'lead_qualification') {
-                html += '<h4 class="font-semibold text-gray-800">🎯 Lead Qualification Results</h4>';
-                
-                const result = data.agent_result || data;
-                
-                if (result.qualified !== undefined) {
-                    const qualifiedColor = result.qualified ? 'text-green-600' : 'text-red-600';
-                    html += `<p class="${qualifiedColor}"><strong>Lead Status:</strong> ${result.qualified ? '✅ Qualified' : '❌ Not Qualified'}</p>`;
-                }
-                
-                // Show reasoning immediately after status for context
-                if (result.reasoning) {
-                    html += `<p class="mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400"><strong>Why:</strong> ${result.reasoning}</p>`;
-                }
-                
-                if (result.lead_score !== undefined) {
-                    const scoreColor = result.lead_score >= 80 ? 'text-green-600' : result.lead_score >= 60 ? 'text-yellow-600' : 'text-red-600';
-                    html += `<p class="${scoreColor}"><strong>Lead Score:</strong> ${result.lead_score}/100</p>`;
-                }
-                
-                // Show failed criteria for not qualified leads
-                if (!result.qualified && result.failed_criteria && result.failed_criteria.length > 0) {
-                    html += `<p class="text-red-600"><strong>Failed Criteria:</strong> ${result.failed_criteria.length} issues</p>`;
-                    html += `<ul class="ml-4 list-disc text-red-600">${result.failed_criteria.map(criteria => `<li>${criteria}</li>`).join('')}</ul>`;
-                }
-                
-                if (result.qualification_criteria && result.qualification_criteria.length > 0) {
-                    html += `<p class="text-green-600"><strong>Criteria Met:</strong> ${result.qualification_criteria.length} items</p>`;
-                    html += `<ul class="ml-4 list-disc text-green-600">${result.qualification_criteria.map(criteria => `<li>${criteria}</li>`).join('')}</ul>`;
-                }
-                
-                if (result.recommendation) {
-                    html += `<p><strong>Recommendation:</strong> ${result.recommendation}</p>`;
-                }
-                
-                // Show any additional context
-                if (result.business_type) {
-                    html += `<p><strong>Business Type:</strong> ${result.business_type}</p>`;
-                }
-                if (result.industry) {
-                    html += `<p><strong>Industry:</strong> ${result.industry}</p>`;
-                }
-                if (result.processing_time) {
-                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
-                }
-            } else if (agentName === 'market_qualification') {
-                html += '<h4 class="font-semibold text-gray-800">🏪 Market Qualification Results</h4>';
-                
-                const result = data.agent_result || data;
-                
-                if (result.qualified !== undefined) {
-                    const qualifiedColor = result.qualified ? 'text-green-600' : 'text-red-600';
-                    html += `<p class="${qualifiedColor}"><strong>Market Status:</strong> ${result.qualified ? '✅ Qualified' : '❌ Not Qualified'}</p>`;
-                }
-                
-                // Show reasoning immediately for context
-                if (result.reasoning) {
-                    html += `<p class="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400"><strong>Why:</strong> ${result.reasoning}</p>`;
-                }
-                
-                if (result.market_score !== undefined) {
-                    html += `<p><strong>Market Score:</strong> ${result.market_score}/100</p>`;
-                }
-                if (result.target_market) {
-                    html += `<p><strong>Target Market:</strong> ${result.target_market}</p>`;
-                }
-                if (result.processing_time) {
-                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
-                }
-            } else if (agentName === 'data_validation') {
-                html += '<h4 class="font-semibold text-gray-800">✅ Data Validation Results</h4>';
-                
-                const result = data.agent_result || data;
-                
-                if (result.validation_status) {
-                    const statusColor = result.validation_status === 'VALID' ? 'text-green-600' : 'text-red-600';
-                    html += `<p class="${statusColor}"><strong>Validation Status:</strong> ${result.validation_status}</p>`;
-                }
-                if (result.errors && result.errors.length > 0) {
-                    html += `<p class="text-red-600"><strong>Validation Errors:</strong> ${result.errors.length} found</p>`;
-                    html += `<ul class="ml-4 list-disc text-red-600">${result.errors.map(error => `<li>${error}</li>`).join('')}</ul>`;
-                }
-                if (result.missing_fields && result.missing_fields.length > 0) {
-                    html += `<p class="text-orange-600"><strong>Missing Fields:</strong> ${result.missing_fields.join(', ')}</p>`;
-                }
-                if (result.reasoning) {
-                    html += `<p class="mt-2 p-2 bg-gray-50 border-l-4 border-gray-400"><strong>Why:</strong> ${result.reasoning}</p>`;
-                }
-                if (result.processing_time) {
-                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
-                }
-            } else if (agentName === 'decision_making') {
-                html += '<h4 class="font-semibold text-gray-800">⚖️ Decision Making Results</h4>';
-                
-                const result = data.agent_result || data;
-                
-                if (result.decision) {
-                    const decisionColor = result.decision === 'APPROVED' ? 'text-green-600' : result.decision === 'DECLINED' ? 'text-red-600' : 'text-yellow-600';
-                    html += `<p class="${decisionColor}"><strong>Final Decision:</strong> ${result.decision}</p>`;
-                }
-                if (result.confidence !== undefined) {
-                    const confidence = typeof result.confidence === 'number' ? Math.round(result.confidence * 100) : result.confidence;
-                    html += `<p><strong>Decision Confidence:</strong> ${confidence}%</p>`;
-                }
-                if (result.reasoning) {
-                    html += `<p><strong>Decision Reasoning:</strong> ${result.reasoning}</p>`;
-                }
-                if (result.conditions && result.conditions.length > 0) {
-                    html += `<p><strong>Conditions:</strong> ${result.conditions.length} required</p>`;
-                    html += `<ul class="ml-4 list-disc">${result.conditions.map(condition => `<li>${condition}</li>`).join('')}</ul>`;
-                }
-                if (result.processing_time) {
-                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
-                }
-            } else if (agentName === 'compliance_verification') {
-                html += '<h4 class="font-semibold text-gray-800">✅ Compliance Verification Results</h4>';
-                
-                const result = data.agent_result || data;
-                
-                if (result.compliance_status) {
-                    const statusColor = result.compliance_status === 'COMPLIANT' ? 'text-green-600' : result.compliance_status === 'NON_COMPLIANT' ? 'text-red-600' : 'text-yellow-600';
-                    html += `<p class="${statusColor}"><strong>Compliance Status:</strong> ${result.compliance_status}</p>`;
-                }
-                if (result.checks_passed !== undefined && result.total_checks !== undefined) {
-                    html += `<p><strong>Checks Passed:</strong> ${result.checks_passed}/${result.total_checks}</p>`;
-                }
-                if (result.violations && result.violations.length > 0) {
-                    html += `<p class="text-red-600"><strong>Violations Found:</strong> ${result.violations.length}</p>`;
-                    html += `<ul class="ml-4 list-disc">${result.violations.map(violation => `<li>${violation}</li>`).join('')}</ul>`;
-                }
-                if (result.processing_time) {
-                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
-                }
-            } else if (agentName === 'communication') {
-                html += '<h4 class="font-semibold text-gray-800">📧 Communication Results</h4>';
-                
-                const result = data.agent_result || data;
-                
-                if (result.communication_strategy) {
-                    const strategy = result.communication_strategy;
-                    html += `<p><strong>Message Type:</strong> ${strategy.message_type || 'Standard'}</p>`;
-                    html += `<p><strong>Channel:</strong> ${strategy.channel || 'Email'}</p>`;
-                }
-                if (result.message_sent !== undefined) {
-                    const sentColor = result.message_sent ? 'text-green-600' : 'text-red-600';
-                    html += `<p class="${sentColor}"><strong>Message Status:</strong> ${result.message_sent ? '✅ Sent' : '❌ Failed'}</p>`;
-                }
-                if (result.reasoning) {
-                    html += `<p class="mt-2 p-2 bg-gray-50 border-l-4 border-gray-400"><strong>Why:</strong> ${result.reasoning}</p>`;
-                }
-                if (result.processing_time) {
-                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
-                }
-            } else {
-                const agentTitle = agentName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                html += `<h4 class="font-semibold text-gray-800">🔧 ${agentTitle} Results</h4>`;
-                
-                const result = data.agent_result || data;
-                
-                // Generic formatting for other agents
-                if (result.status) {
-                    const statusColor = result.status === 'completed' ? 'text-green-600' : result.status === 'failed' ? 'text-red-600' : 'text-yellow-600';
-                    html += `<p class="${statusColor}"><strong>Status:</strong> ${result.status.toUpperCase()}</p>`;
-                }
-                if (result.confidence !== undefined) {
-                    const confidence = typeof result.confidence === 'number' ? Math.round(result.confidence * 100) : result.confidence;
-                    html += `<p><strong>Confidence:</strong> ${confidence}%</p>`;
-                }
-                if (result.recommendation) {
-                    html += `<p><strong>Recommendation:</strong> ${result.recommendation}</p>`;
-                }
-                if (result.decision) {
-                    const decisionColor = result.decision === 'APPROVED' ? 'text-green-600' : result.decision === 'DECLINED' ? 'text-red-600' : 'text-yellow-600';
-                    html += `<p class="${decisionColor}"><strong>Decision:</strong> ${result.decision}</p>`;
-                }
-                if (result.reasoning && !html.includes('Why:')) {
-                    html += `<p class="mt-2 p-2 bg-gray-50 border-l-4 border-gray-400"><strong>Why:</strong> ${result.reasoning}</p>`;
-                }
-                if (result.processing_time) {
-                    html += `<p><strong>Processing Time:</strong> ${result.processing_time} seconds</p>`;
+            if (typeof data === 'object' && data !== null) {
+                for (const [key, value] of Object.entries(data)) {
+                    if (key.startsWith('_') || typeof value === 'object') continue;
+                    
+                    const formattedKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    let colorClass = '';
+                    
+                    if (key.includes('error') || key.includes('fail') || value === false) {
+                        colorClass = 'text-red-600';
+                    } else if (key.includes('success') || key.includes('pass') || key.includes('clear') || value === true) {
+                        colorClass = 'text-green-600';
+                    } else if (key.includes('warning') || key.includes('risk')) {
+                        colorClass = 'text-yellow-600';
+                    }
+                    
+                    html += `<p class="${colorClass}"><strong>${formattedKey}:</strong> ${value}</p>`;
                 }
             }
-            
-            // Show raw data in collapsible section
-            html += `
-                <details class="mt-4">
-                    <summary class="cursor-pointer text-blue-600 hover:text-blue-800">View Raw Data</summary>
-                    <pre class="mt-2 p-3 bg-gray-100 rounded text-xs overflow-auto">${JSON.stringify(data, null, 2)}</pre>
-                </details>
-            `;
             
             html += '</div>';
             return html;

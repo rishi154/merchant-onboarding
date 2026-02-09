@@ -264,7 +264,7 @@ def get_applications():
             'status': app.status,
             'current_agent': app.current_agent,
             'progress_percentage': calculate_dynamic_progress(app),
-            'status': get_corrected_status(app),
+            'status': app.status,
             'documents_processed': app.documents_processed,
             'extraction_confidence': app.extraction_confidence,
             'manual_fields_required': app.manual_fields_required,
@@ -394,7 +394,7 @@ def calculate_processing_duration(app):
     """Calculate processing duration in minutes"""
     if app.processing_start_time:
         end_time = app.processing_end_time or app.updated_at
-        if end_time:
+        if end_time and end_time > app.processing_start_time:
             delta = end_time - app.processing_start_time
             return int(delta.total_seconds() / 60)
     return 0
@@ -512,6 +512,7 @@ def get_application_state(app_id):
             'current_agent': application.current_agent,
             'progress_percentage': application.progress_percentage or 0,
             'agent_results': application.agent_results or {},
+            'agent_summaries': application.agent_summaries or {},
             'needs_review': application.needs_review == 'true',
             'review_agent': application.review_agent,
             'review_data': application.review_data,
@@ -1069,6 +1070,11 @@ def submit_review_decision(app_id):
             application.needs_review = 'false'
             application.processing_end_time = datetime.now()
             session.commit()
+            
+            # Trigger event to stop workflow
+            import builtins
+            if hasattr(builtins, 'review_events') and app_id in builtins.review_events:
+                builtins.review_events[app_id].set()
             
             return jsonify({
                 'success': True,
@@ -1686,25 +1692,20 @@ def run_workflow(app_id, documents, business_name, workflow_pattern='comprehensi
             
             # Check if workflow was stopped due to rejection
             if "rejection" in str(e).lower() or "stopped" in str(e).lower():
-                print(f"[{app_id}] Workflow stopped by human rejection")
-                final_status = 'declined'
-                
-                # Update database status
-                try:
-                    session = Session()
-                    application = session.query(MerchantApplication).filter_by(id=app_id).first()
-                    if application:
-                        application.status = 'declined'
-                        application.processing_end_time = datetime.now()
-                        session.commit()
-                    session.close()
-                except Exception as db_error:
-                    print(f"[{app_id}] Error updating declined status: {db_error}")
-                
-                return  # Exit workflow execution completely
-            else:
-                final_status = 'failed'
-        # Determine final status based on business outcome
+                print(f"[{app_id}] Workflow stopped by human rejection - exiting completely")
+                return  # Exit completely, don't continue to final update
+            
+            final_status = 'failed'
+        
+        # Check if declined before final update
+        session_check = Session()
+        app_check = session_check.query(MerchantApplication).filter_by(id=app_id).first()
+        if app_check and app_check.status == 'declined':
+            session_check.close()
+            print(f"[{app_id}] Application declined - skipping final update")
+            return
+        session_check.close()
+        
         final_status = 'completed'
         if isinstance(result, dict):
             # Check decision_making result (could be under 'decision_making' or 'decision' key)
@@ -1888,6 +1889,28 @@ def save_agent_result(app_id, agent_results):
             'error': str(e)
         }, room=f'app_{app_id}')
 
+def generate_and_store_summary(agent_name, result):
+    """Generate summary when agent completes and return it"""
+    try:
+        sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+        from llm_config import get_llm
+        
+        llm = get_llm()
+        prompt = f"""Summarize these {agent_name} results for a human reviewer in 3-4 sentences with HTML formatting:
+{json.dumps(result, indent=2)[:1000]}
+
+Use <p>, <strong>, and color classes (text-green-600, text-red-600, text-yellow-600)."""
+        
+        summary = llm.invoke(prompt)
+        summary_text = summary.content if hasattr(summary, 'content') else str(summary)
+        
+        if len(summary_text) > 50 and '<' in summary_text:
+            return summary_text
+    except Exception as e:
+        print(f"[SUMMARY] LLM unavailable for {agent_name}: {e}")
+    
+    return generate_fallback_summary(agent_name, result)
+
 @socketio.on('join_application')
 def on_join(data):
     """Join room for real-time updates"""
@@ -1964,6 +1987,73 @@ def delete_application(app_id):
         return jsonify({'error': str(e)}), 500
     finally:
         session.close()
+
+@app.route('/api/summarize-agent-result', methods=['POST'])
+def summarize_agent_result():
+    """Get pre-generated summary or generate on-demand if not available"""
+    try:
+        data = request.get_json()
+        agent_name = data.get('agent_name')
+        result = data.get('result')
+        app_id = data.get('application_id')
+        
+        if not agent_name or not result:
+            return jsonify({'error': 'Missing agent_name or result'}), 400
+        
+        # Try to get pre-generated summary from database first
+        if app_id:
+            session = Session()
+            try:
+                application = session.query(MerchantApplication).filter_by(id=app_id).first()
+                if application and application.agent_summaries and agent_name in application.agent_summaries:
+                    print(f"[SUMMARY] Returning stored summary for {agent_name}")
+                    return jsonify({'summary': application.agent_summaries[agent_name]})
+            finally:
+                session.close()
+        
+        # Generate on-demand if not stored
+        print(f"[SUMMARY] Generating on-demand summary for {agent_name}")
+        summary = generate_and_store_summary(agent_name, result)
+        return jsonify({'summary': summary})
+        
+    except Exception as e:
+        print(f"[SUMMARY] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'summary': generate_fallback_summary(agent_name if 'agent_name' in locals() else 'unknown', result if 'result' in locals() else {})})
+
+def generate_fallback_summary(agent_name, result):
+    """Generate a simple HTML summary when LLM is unavailable"""
+    html = f'<div class="space-y-3"><h4 class="font-semibold text-gray-800">{agent_name.replace("_", " ").title()} Results</h4>'
+    
+    if isinstance(result, dict):
+        for key, value in result.items():
+            if key.startswith('_') or key in ['tools_used']:
+                continue
+            
+            if isinstance(value, (str, int, float, bool)):
+                formatted_key = key.replace('_', ' ').title()
+                color_class = ''
+                
+                if 'error' in key.lower() or 'fail' in key.lower() or value is False:
+                    color_class = 'text-red-600'
+                elif 'success' in key.lower() or 'pass' in key.lower() or 'clear' in key.lower() or value is True:
+                    color_class = 'text-green-600'
+                elif 'warning' in key.lower() or 'risk' in key.lower():
+                    color_class = 'text-yellow-600'
+                
+                html += f'<p class="{color_class}"><strong>{formatted_key}:</strong> {value}</p>'
+            elif isinstance(value, list) and value:
+                formatted_key = key.replace('_', ' ').title()
+                html += f'<p><strong>{formatted_key}:</strong></p><ul class="ml-4 list-disc">'
+                for item in value[:5]:
+                    html += f'<li>{item}</li>'
+                if len(value) > 5:
+                    html += f'<li>... and {len(value) - 5} more</li>'
+                html += '</ul>'
+    
+    html += '<p class="text-sm text-gray-500 mt-4"><em>Note: LLM summary unavailable, showing structured data</em></p></div>'
+    return html
 
 if __name__ == '__main__':
     # Create uploads directory
